@@ -46,8 +46,10 @@ dist.tar.gz
 
 # 运行时文件
 *.pid
+*.pid.txt
 exitcode.txt
 nul
+service.log
 
 # IDE
 .vscode/

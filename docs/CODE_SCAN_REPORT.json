@@ -1,0 +1,19 @@
+{
+  "stats": {
+    "total_files": 73,
+    "total_lines": 16783,
+    "syntax_errors": 0,
+    "truncated_files": 0,
+    "security_issues": 0,
+    "plugin_issues": 0,
+    "unused_imports": 0,
+    "interface_issues": 0,
+    "todo_count": 0
+  },
+  "issues": {},
+  "summary": {
+    "critical": 0,
+    "warnings": 0,
+    "health": "excellent"
+  }
+}

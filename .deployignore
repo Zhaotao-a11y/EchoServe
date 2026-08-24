@@ -1,0 +1,13 @@
+# 排除大文件和不需要的依赖
+web/node_modules/
+models/
+data/chroma/
+data/chroma_cs/
+__pycache__/
+*.pyc
+*.log
+*.tar.gz
+*.zip
+.git/
+.venv/
+venv/

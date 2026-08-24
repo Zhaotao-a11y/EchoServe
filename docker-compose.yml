@@ -1,0 +1,298 @@
+# EchoServe V0.1.0 — Docker Compose
+#
+# 启动全部服务：
+#   docker compose up -d
+#
+# 仅启动核心服务（不含监控和训练）：
+#   docker compose up -d vllm chroma redis postgres api nginx
+#
+# 启动监控栈（Prometheus + Grafana）：
+#   docker compose --profile monitoring up -d
+#
+# 启动训练服务（离线 LoRA 微调）：
+#   docker compose --profile training up -d
+
+version: "3.9"
+
+services:
+  # ─── vLLM 推理服务 ───────────────────
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: echoseve-vllm
+    runtime: nvidia
+    environment:
+      - MODEL_PATH=/models/qwen3-14b-q4
+      - GPU_MEMORY_UTILIZATION=0.90
+      - MAX_MODEL_LEN=32768
+      - TENSOR_PARALLEL_SIZE=1
+      - ENABLE_PREFIX_CACHING=true
+    volumes:
+      - ./models:/models:ro
+    expose:
+      - "8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── Chroma 向量数据库 ───────────────────────
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: echoseve-chroma
+    expose:
+      - "8000"
+    volumes:
+      - ./data/chroma:/chroma/chroma
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ─── Redis 缓存 ───────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: echoseve-redis
+    expose:
+      - "6379"
+    volumes:
+      - ./data/redis:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ─── PostgreSQL（审计日志 + 用户数据）──────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: echoseve-postgres
+    environment:
+      POSTGRES_DB: echoseve
+      POSTGRES_USER: echoseve
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-echoseve_secure_2026}
+    expose:
+      - "5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U echoseve"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ─── EchoServe API 服务 ──────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: echoseve-api
+    environment:
+      - MODEL_PATH=/models/qwen3-14b-q4
+      - VLLM_HOST=http://vllm:8000
+      - CHROMA_HOST=http://chroma:8000
+      - EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
+      - EMBEDDING_DIM=512
+      - RETRIEVAL_TOP_K=10
+      - RRF_K=60
+      - BM25_WEIGHT=0.4
+      - VECTOR_WEIGHT=0.6
+      # P1 — 重排序
+      - RERANK_ENABLED=true
+      - RERANK_TIER=standard
+      - RERANK_DEVICE=cpu
+      # P1 — 监控
+      - MONITORING_ENABLED=true
+      - METRICS_PORT=9090
+      - METRICS_INTERVAL=15
+      # P1 — 进化引擎
+      - EVOLVE_ENABLED=true
+      - TRAIN_DATA_PATH=/app/data/training/train.jsonl
+      - TEST_DATA_PATH=/app/data/training/test_set.jsonl
+      # P1 — 备份
+      - BACKUP_ENABLED=true
+      - BACKUP_DIR=/app/data/backups
+      - BACKUP_RETENTION=30
+      # 安全
+      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-random-secret-key}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=480
+      - LOG_LEVEL=INFO
+      # V0.1.6 — Redis 会话持久化
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=
+      - REDIS_SESSION_TTL=1800
+      - REDIS_KEY_PREFIX=echoseve:session:
+      # V0.1.7 — PostgreSQL 用户/API Key 持久化
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=echoseve
+      - POSTGRES_USER=echoseve
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-echoseve_secure_2026}
+      # 企业微信
+      - WECHAT_CORP_ID=${WECHAT_CORP_ID:-}
+      - WECHAT_AGENT_ID=${WECHAT_AGENT_ID:-}
+      - WECHAT_SECRET=${WECHAT_SECRET:-}
+      - WECHAT_TOKEN=${WECHAT_TOKEN:-}
+      - WECHAT_AES_KEY=${WECHAT_AES_KEY:-}
+    depends_on:
+      vllm:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./models:/models:ro
+      - ./web/dist:/app/web/dist:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ─── Nginx 反向代理 ──────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: echoseve-nginx
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./web/dist:/usr/share/nginx/html:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── Prometheus 监控 ────────────────────────
+  # 启动：docker compose --profile monitoring up -d
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: echoseve-prometheus
+    profiles:
+      - monitoring
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    restart: unless-stopped
+
+  # ─── Grafana 仪表盘 ──────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: echoseve-grafana
+    profiles:
+      - monitoring
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-echoseve_admin_2026}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana-provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ─── 训练服务（离线 LoRA 微调）──────────────
+  # 启动：docker compose --profile training up -d
+  trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile.trainer
+    container_name: echoseve-trainer
+    profiles:
+      - training
+    runtime: nvidia
+    environment:
+      - TRAINING_MODE=lora
+      - BASE_MODEL_PATH=/models/qwen3-14b-q4
+      - TRAIN_DATA_PATH=/app/data/training/train.jsonl
+      - OUTPUT_DIR=/app/models/adapters/latest
+      - LORA_R=8
+      - LORA_ALPHA=16
+      - LORA_DROPOUT=0.05
+      - TRAIN_EPOCHS=3
+      - TRAIN_BATCH_SIZE=2
+      - TRAIN_LR=2e-4
+    volumes:
+      - ./data:/app/data
+      - ./models:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: "no"  # 训练完成即退出
+    # 健康检查：检查训练是否完成
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /app/models/adapters/latest/adapter_config.json && echo ready || echo training"]
+      interval: 60s
+      timeout: 10s
+      retries: 1
+
+  # ─── 前端开发服务器（开发模式用）──────────────
+  web-dev:
+    image: node:20-alpine
+    container_name: echoseve-web-dev
+    profiles:
+      - dev
+    working_dir: /app/web
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web:/app/web
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    restart: unless-stopped
+
+# ─── 持久化卷 ──────────────────────────────────
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# ─── 网络隔离 ──────────────────────────────────
+# 内部服务网络：vllm/chroma/redis/postgres/api 之间通信
+# 外部不可直接访问（仅通过 nginx 或 api 端口暴露）
+networks:
+  default:
+    name: echoseve-internal
+    driver: bridge
+    internal: false  # 需要访问外部 API（如 HuggingFace），不设为 internal
+

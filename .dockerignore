@@ -1,0 +1,49 @@
+# EchoServe .dockerignore — 防止敏感文件打入镜像
+
+# 环境变量与密钥
+.env
+.env.*
+*.key
+*.pem
+credentials.json
+
+# Git
+.git
+.gitignore
+
+# Python 缓存与虚拟环境
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 测试与文档
+tests/
+.pytest_cache/
+docs/
+*.md
+reports/
+
+# 构建产物
+build/
+dist/
+*.egg-info/
+
+# 数据目录（运行时挂载，不打入镜像）
+data/logs/
+data/chroma/
+data/knowledge/
+data/training/
+
+# Docker 自身
+Dockerfile
+docker-compose.yml
+.dockerignore

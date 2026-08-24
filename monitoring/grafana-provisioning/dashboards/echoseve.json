@@ -1,0 +1,192 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": 1,
+  "iteration": 1629360000000,
+  "links": [],
+  "panels": [
+    {
+      "title": "GPU 利用率",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "echoseve_gpu_utilization",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "title": "GPU 显存使用 (MB)",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "echoseve_gpu_memory_used_mb",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decimalBytes"
+        }
+      }
+    },
+    {
+      "title": "系统内存使用率",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "echoseve_system_memory_percent",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "title": "CPU 使用率",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "echoseve_system_cpu_percent",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "title": "请求速率 (QPS)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(echoseve_requests_total[5m])",
+          "refId": "A",
+          "legendFormat": "{{method}} - {{status}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 }
+    },
+    {
+      "title": "请求延迟 P95 (ms)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(echoseve_request_duration_ms_bucket[5m])) by (le, method))",
+          "refId": "A",
+          "legendFormat": "{{method}} P95"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 6 }
+    },
+    {
+      "title": "活跃会话数",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "echoseve_chat_sessions_active",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 10, "w": 8, "h": 5 }
+    },
+    {
+      "title": "知识库文档数",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "echoseve_knowledge_docs_total",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 8, "y": 10, "w": 8, "h": 5 }
+    },
+    {
+      "title": "Prefix Cache 命中率",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "echoseve_model_prefix_cache_hit_rate",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 16, "y": 10, "w": 8, "h": 5 }
+    },
+    {
+      "title": "检索延迟 (ms)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(echoseve_retrieval_duration_ms_bucket[5m])) by (le))",
+          "refId": "A",
+          "legendFormat": "P95"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 5 }
+    },
+    {
+      "title": "插件状态",
+      "type": "table",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "echoseve_plugin_status",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 15, "w": 12, "h": 5 }
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["echoseve", "rag"],
+  "title": "EchoServe 监控仪表盘",
+  "uid": "echoseve-main",
+  "version": 1
+}

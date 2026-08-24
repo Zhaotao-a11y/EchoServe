@@ -1,0 +1,88 @@
+# EchoServe Windows Docker Compose
+# Uses WSL2 backend
+version: "3.9"
+
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: echoseve-vllm
+    runtime: nvidia
+    environment:
+      - MODEL_PATH=/models/qwen3-14b-q4
+      - GPU_MEMORY_UTILIZATION=0.90
+      - MAX_MODEL_LEN=32768
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: echoseve-chroma
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./data/chroma:/chroma/chroma
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: echoseve-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: echoseve-postgres
+    environment:
+      POSTGRES_DB: echoseve
+      POSTGRES_USER: echoseve
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-echoseve_secure_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: echoseve-api
+    environment:
+      - MODEL_PATH=/models/qwen3-14b-q4
+      - VLLM_HOST=http://vllm:8000
+      - CHROMA_HOST=http://chroma:8000
+      - EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
+      - JWT_SECRET=${JWT_SECRET:-change-me}
+      - LOG_LEVEL=INFO
+    depends_on:
+      - vllm
+      - chroma
+      - redis
+      - postgres
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./models:/models:ro
+      - ./web/dist:/app/web/dist:ro
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: echoseve-nginx
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./web/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+    restart: unless-stopped

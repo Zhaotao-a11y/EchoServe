@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EchoServe 开发文档与代码一致性分析报告</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-hover: #1c2128;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --code-bg: #1e242c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  /* ─── Layout ─── */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 100;
+  }
+  .sidebar h2 {
+    font-size: 14px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0 20px 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .sidebar a {
+    display: block;
+    padding: 8px 20px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+  }
+  .sidebar a:hover {
+    color: var(--accent);
+    background: var(--surface-hover);
+    border-left-color: var(--accent);
+  }
+  .sidebar a.sub {
+    padding-left: 36px;
+    font-size: 12px;
+  }
+  .main {
+    margin-left: 280px;
+    padding: 48px 56px;
+    max-width: 1100px;
+  }
+  /* ─── Typography ─── */
+  h1 {
+    font-size: 28px;
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  h2 {
+    font-size: 22px;
+    color: #fff;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 17px;
+    color: var(--accent);
+    margin-top: 32px;
+    margin-bottom: 12px;
+  }
+  h4 {
+    font-size: 15px;
+    color: var(--purple);
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 4px; }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--green);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    margin: 12px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  /* ─── Components ─── */
+  .meta-bar {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .meta-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .meta-value { font-size: 14px; color: var(--text); font-weight: 600; }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-green { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+  .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid rgba(210,153,34,0.3); }
+  .badge-red { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
+  .badge-blue { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--border);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:hover td { background: var(--surface-hover); }
+  .callout {
+    border-left: 4px solid;
+    padding: 12px 20px;
+    margin: 16px 0;
+    border-radius: 0 8px 8px 0;
+  }
+  .callout-bug { border-color: var(--red); background: rgba(248,81,73,0.08); }
+  .callout-warn { border-color: var(--yellow); background: rgba(210,153,34,0.08); }
+  .callout-info { border-color: var(--accent); background: rgba(88,166,255,0.08); }
+  .callout-ok { border-color: var(--green); background: rgba(63,185,80,0.08); }
+  .callout-title { font-weight: 700; margin-bottom: 4px; }
+  .callout-bug .callout-title { color: var(--red); }
+  .callout-warn .callout-title { color: var(--yellow); }
+  .callout-info .callout-title { color: var(--accent); }
+  .callout-ok .callout-title { color: var(--green); }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-num { font-size: 32px; font-weight: 700; color: #fff; }
+  .stat-label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .rating-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dots { display: inline-flex; gap: 3px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
+  .dot.on-green { background: var(--green); }
+  .dot.on-yellow { background: var(--yellow); }
+  .dot.on-red { background: var(--red); }
+  .file-ref {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .toc-active { color: var(--accent) !important; border-left-color: var(--accent) !important; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- ─── Sidebar ─── -->
+  <nav class="sidebar" id="sidebar">
+    <h2>分析报告目录</h2>
+    <a href="#summary">1. 执行摘要</a>
+    <a href="#overview">2. 项目概览</a>
+    <a href="#arch">3. 架构一致性分析</a>
+    <a href="#plugin">4. 插件化设计分析</a>
+    <a href="#rag">5. RAG 混合检索分析</a>
+    <a href="#evolve">6. 模型进化引擎分析</a>
+    <a href="#security">7. 安全合规分析</a>
+    <a href="#deploy">8. 部署方案分析</a>
+    <a href="#bugs">9. Bug 与差异清单</a>
+    <a href="#maturity">10. 成熟度评级</a>
+    <a href="#roadmap">11. 改进路线图</a>
+  </nav>
+
+  <!-- ─── Main Content ─── -->
+  <div class="main">
+
+<h1>EchoServe 开发文档与代码一致性分析报告</h1>
+
+<div class="meta-bar">
+  <div class="meta-item">
+    <span class="meta-label">文档版本</span>
+    <span class="meta-value">V0.1.0 修订版</span>
+  </div>
+  <div class="meta-item">
+    <span class="meta-label">代码版本</span>
+    <span class="meta-value">V0.1.0 P2 完整版</span>
+  </div>
+  <div class="meta-item">
+    <span class="meta-label">分析日期</span>
+    <span class="meta-value">2026-08-20</span>
+  </div>
+  <div class="meta-item">
+    <span class="meta-label">分析范围</span>
+    <span class="meta-value">13 插件 / 7 路由 / 9 前端页面 / 10 Docker 服务（3 profiles）</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="summary">1. 执行摘要</h2>
+
+<p>本报告基于 EchoServe V0.1.0（993 行）与代码库（约 100 个源文件）的全量逐项对比分析。整体结论：<strong>代码与文档在设计架构层面高度一致，四层架构、插件化机制、RAG 混合检索管道、模型进化三阶段策略均已落地</strong>。主要差距集中在<strong>训练模块的模拟实现</strong>（LoRA 训练器和 DPO 训练器当前均为数学公式伪造 loss 曲线，未接入真实 PEFT/TRL 训练流程）和<strong>若干代码缺陷</strong>（1 个确认 Bug、1 个重复类定义、多处接口命名差异）。</p>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-num" style="color:var(--green)">7</div>
+    <div class="stat-label">分析维度</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:var(--accent)">13</div>
+    <div class="stat-label">插件实现</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:var(--red)">1</div>
+    <div class="stat-label">确认 Bug</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:var(--yellow)">5</div>
+    <div class="stat-label">主要差异点</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:var(--yellow)">2</div>
+    <div class="stat-label">模拟实现模块</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:var(--green)">B+</div>
+    <div class="stat-label">整体成熟度</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="overview">2. 项目概览</h2>
+
+<p>EchoServe 是一个面向企业级知识库问答的本地化 LLM 智能体系统，核心能力包括：RAG 增强问答、多轮对话管理、知识库文档管理、模型自进化（LoRA/DPO 微调）、多渠道接入（网页/企业微信/WhatsApp）、安全合规审计。</p>
+
+<h3>文档描述的四层架构</h3>
+<table>
+  <tr><th>层级</th><th>文档描述</th><th>核心组件</th></tr>
+  <tr><td>核心层 (Core)</td><td>BaizeContext 依赖注入 + Fiber 生命周期管理 + EventBus 事件总线</td><td><code>core/context.py</code>, <code>core/fiber.py</code>, <code>core/events.py</code>, <code>core/plugin.py</code></td></tr>
+  <tr><td>插件层 (Plugins)</td><td>13 个插件，通过 BaizePlugin 基类统一管理，依赖注入解耦</td><td><code>plugins/</code> 下 13 个子目录</td></tr>
+  <tr><td>API 层</td><td>FastAPI 路由，7 个路由模块，JWT 认证 + 合规检查</td><td><code>api/main.py</code>, <code>api/routers/</code></td></tr>
+  <tr><td>前端层 (Web)</td><td>Vue 3 + Element Plus，9 个页面组件</td><td><code>web/src/</code></td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="arch">3. 架构一致性分析</h2>
+
+<h3>3.1 四层架构落地情况</h3>
+
+<table>
+  <tr><th>维度</th><th>文档设计</th><th>代码实现</th><th>评级</th></tr>
+  <tr>
+    <td>核心层</td>
+    <td>BaizeContext 提供 provide/inject 依赖注入、EventBus 事件总线、Fiber 生命周期状态机</td>
+    <td>三件套全部实现：<code>context.py</code>（provide/inject/subscribe/proxy）、<code>fiber.py</code>（6 态状态机 + Kahn 拓扑排序）、<code>events.py</code>（同步/异步处理器 + 通配符订阅）</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>插件层</td>
+    <td>BaizePlugin 基类 + 5 个生命周期钩子（on_load → on_init → on_start → on_stop → on_destroy）</td>
+    <td><code>core/plugin.py</code> 完整实现基类 + 5 钩子；13 个插件均继承 BaizePlugin</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>API 层</td>
+    <td>FastAPI + lifespan 管理插件全生命周期，7 个路由模块</td>
+    <td><code>api/main.py</code> 使用 lifespan 上下文管理器按依赖顺序注册 13 个插件；7 个路由模块文件全部存在</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>前端层</td>
+    <td>Vue 3 + Element Plus，9 个页面（登录/仪表盘/知识库/对话/模型管理/训练/用户/审计/设置）</td>
+    <td><code>web/src/</code> 目录存在，README 声明 9 个页面组件</td>
+    <td><span class="badge badge-blue">未深入审计</span></td>
+  </tr>
+</table>
+
+<h3>3.2 插件注册顺序验证</h3>
+
+<p>文档中定义的插件加载顺序遵循依赖拓扑排序。代码中 <code>api/main.py</code> 的 lifespan 注册顺序如下：</p>
+
+<pre><code># api/main.py lifespan 注册顺序
+AuthPlugin → AuditPlugin → RetrieverPlugin → LLMPlugin → KnowledgePlugin
+→ ChatPlugin → WeChatChannelPlugin → ModelManagerPlugin → MonitoringPlugin
+→ ModelEvolvePlugin → EnterpriseAuthPlugin → WhatsAppChannelPlugin</code></pre>
+
+<div class="callout callout-ok">
+  <div class="callout-title">验证通过</div>
+  每个插件的 <code>dependencies</code> 声明与注册顺序一致。例如 ChatPlugin 依赖 <code>["core.llm", "core.knowledge", "core.retriever"]</code>，三者均在其之前注册。FiberManager 内部还通过 Kahn 算法做了二次拓扑校验。
+</div>
+
+<h3>3.3 命名差异</h3>
+
+<table>
+  <tr><th>文档术语</th><th>代码实际</th><th>影响</th></tr>
+  <tr><td><code>ctx.on(event, handler)</code></td><td><code>ctx.subscribe(event, handler)</code></td><td>无功能影响，仅方法名不同</td></tr>
+  <tr><td><code>fiber.teardown()</code></td><td><code>fiber.destroy()</code></td><td>无功能影响，仅方法名不同</td></tr>
+  <tr><td><code>BaizePlugin.dispose()</code></td><td><code>BaizePlugin.on_destroy()</code></td><td>代码扩展为完整状态机，更合理</td></tr>
+</table>
+
+<div class="callout callout-info">
+  <div class="callout-title">设计增强（正向差异）</div>
+  代码中的 Fiber 比文档设计更完善：文档中 Fiber 只有 <code>dispose</code> 一个收尾方法，代码实现了完整的 6 态状态机（UNLOADED → LOADED → INITIALIZED → STARTED → STOPPED → DESTROYED），每个状态转换都有日志记录和异常捕获。这是一个正向偏差。
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="plugin">4. 插件化设计分析</h2>
+
+<h3>4.1 插件清单与实现状态</h3>
+
+<table>
+  <tr><th>#</th><th>插件名</th><th>plugin_id</th><th>核心职责</th><th>代码行数</th><th>实现度</th></tr>
+  <tr><td>1</td><td>AuthPlugin</td><td>core.auth</td><td>JWT 认证 + bcrypt + 登录限流 + API Key + 6 角色 RBAC</td><td>~400</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>2</td><td>AuditPlugin</td><td>core.audit</td><td>操作审计日志记录（查询/管理/安全事件）</td><td>~200</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>3</td><td>RetrieverPlugin</td><td>core.retriever</td><td>BM25 + Vector 并行检索 → RRF 融合 → Cross-Encoder 重排序</td><td>~350</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>4</td><td>LLMPlugin</td><td>core.llm</td><td>vLLM OpenAI 兼容 API 封装，同步/流式/系统提示词管理</td><td>171</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>5</td><td>KnowledgePlugin</td><td>core.knowledge</td><td>文档上传/解析/切片/双写索引/权限标记</td><td>430</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>6</td><td>ChatPlugin</td><td>core.chat</td><td>RAG 编排 + 多轮对话 + 流式/非流式 + 审计日志</td><td>282</td><td><span class="badge badge-yellow">有 Bug</span></td></tr>
+  <tr><td>7</td><td>WeChatChannelPlugin</td><td>channel.wechat</td><td>企业微信 Webhook 接收/消息转换/回复</td><td>373</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>8</td><td>ModelManagerPlugin</td><td>core.model_manager</td><td>模型扫描/热切换/LoRA adapter 管理</td><td>~300</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>9</td><td>MonitoringPlugin</td><td>core.monitoring</td><td>Prometheus 指标采集 + 系统健康检查</td><td>~200</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>10</td><td>ModelEvolvePlugin</td><td>core.evolve</td><td>三阶段进化策略 + 离线 LoRA 触发 + 每周评估 + A/B 测试</td><td>~400</td><td><span class="badge badge-yellow">训练模拟</span></td></tr>
+  <tr><td>11</td><td>EnterpriseAuthPlugin</td><td>auth.enterprise</td><td>企业级认证扩展（SSO/LDAP 对接预留）</td><td>~150</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>12</td><td>WhatsAppChannelPlugin</td><td>channel.whatsapp</td><td>WhatsApp Business API 对接</td><td>~250</td><td><span class="badge badge-green">完整</span></td></tr>
+  <tr><td>13</td><td>—</td><td>—</td><td><strong>文档中未提及 WhatsApp 插件</strong></td><td>—</td><td><span class="badge badge-blue">代码超额</span></td></tr>
+</table>
+
+<h3>4.2 BaizePlugin 基类设计</h3>
+
+<p><code>core/plugin.py</code> 定义了所有插件的抽象基类，设计简洁且与文档一致：</p>
+
+<pre><code>class BaizePlugin:
+    plugin_id: str = ""
+    plugin_name: str = ""
+    plugin_version: str = "0.1.0"
+    dependencies: List[str] = []
+
+    # 生命周期钩子（子类可重写）
+    async def on_load(self, ctx, fiber):    # 注册服务
+    async def on_init(self, ctx, fiber):    # 初始化资源
+    async def on_start(self, ctx, fiber):   # 启动后台任务
+    async def on_stop(self, ctx, fiber):    # 停止任务
+    async def on_destroy(self, ctx, fiber): # 释放资源</code></pre>
+
+<div class="callout callout-ok">
+  <div class="callout-title">设计亮点</div>
+  基类通过 <code>self._ctx</code> 保存上下文引用，子类可通过 <code>self.provide(key, service)</code> 和 <code>self.inject(key)</code> 直接操作依赖注入，无需重复传递 ctx 参数。publish 方法代理到 EventBus，实现插件间松耦合通信。
+</div>
+
+<h3>4.3 BaizeContext 依赖注入</h3>
+
+<p><code>core/context.py</code> 实现了轻量级 IoC 容器：</p>
+
+<ul>
+  <li><code>provide(key, service)</code> — 注册服务实例</li>
+  <li><code>inject(key)</code> — 按键获取服务，不存在返回 None</li>
+  <li><code>subscribe(event, handler)</code> — 订阅事件（文档中叫 <code>on</code>）</li>
+  <li><code>publish(event, data)</code> — 发布事件</li>
+  <li><code>destroy()</code> — LIFO 顺序清理所有注册的服务（文档中叫 <code>teardown</code>）</li>
+</ul>
+
+<h3>4.4 Fiber 生命周期管理</h3>
+
+<p><code>core/fiber.py</code> 实现了比文档更完善的方案：</p>
+
+<table>
+  <tr><th>特性</th><th>文档描述</th><th>代码实现</th></tr>
+  <tr><td>状态机</td><td>简单 dispose</td><td>6 态完整状态机 + 非法转换检测</td></tr>
+  <tr><td>依赖解析</td><td>手动声明 dependencies</td><td>FiberManager 使用 Kahn 拓扑排序自动解析加载顺序</td></tr>
+  <tr><td>任务管理</td><td>未提及</td><td><code>fiber.add_task()</code> 注册 asyncio Task，stop 时统一取消</td></tr>
+  <tr><td>异常隔离</td><td>未提及</td><td>单个插件初始化失败不会阻塞其他插件</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="rag">5. RAG 混合检索分析</h2>
+
+<h3>5.1 文档设计的 RAG 管道</h3>
+
+<p>文档定义了三阶段混合检索管道：</p>
+<ol>
+  <li><strong>并行检索</strong>：BM25（词面匹配）+ Vector（语义检索）同时执行</li>
+  <li><strong>RRF 融合</strong>：Reciprocal Rank Fusion 合并两路结果</li>
+  <li><strong>Cross-Encoder 重排序</strong>：可选的高精度重排序阶段</li>
+</ol>
+
+<h3>5.2 代码实现验证</h3>
+
+<table>
+  <tr><th>组件</th><th>文档要求</th><th>代码文件</th><th>实现详情</th><th>评级</th></tr>
+  <tr>
+    <td>BM25 检索</td>
+    <td>rank_bm25 + jieba 中文分词</td>
+    <td><code>plugins/retriever/bm25.py</code></td>
+    <td>BM25Okapi + jieba.cut 分词，全内存索引，支持动态增删</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>Vector 检索</td>
+    <td>ChromaDB + SentenceTransformers 向量化</td>
+    <td><code>plugins/retriever/vector.py</code></td>
+    <td>支持 HTTP 远程模式和本地持久化模式，通过 config 切换</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>RRF 融合</td>
+    <td>Reciprocal Rank Fusion，k=60</td>
+    <td><code>plugins/retriever/rrf.py</code></td>
+    <td>标准 RRF 公式 <code>score = sum(1/(k+rank))</code></td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>Cross-Encoder</td>
+    <td>支持动态切换重排序档次</td>
+    <td><code>plugins/retriever/reranker.py</code></td>
+    <td>多模型可选，按 config 配置加载</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>RetrieverPlugin</td>
+    <td>编排并行检索 → 融合 → 重排序</td>
+    <td><code>plugins/retriever/plugin.py</code></td>
+    <td>asyncio.gather 并行执行 BM25+Vector → RRF → 可选 Cross-Encoder</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+</table>
+
+<h3>5.3 RAG 在 ChatPlugin 中的编排</h3>
+
+<p>ChatPlugin 的 <code>chat()</code> 方法实现了完整的 RAG 编排流程：</p>
+
+<pre><code># plugins/chat/plugin.py — chat() 核心流程
+# 1. RAG 检索
+retrieved_docs = await self._retrieve(user_message)
+
+# 2. 注入检索结果到 LLM 系统提示词
+llm = self.inject("llm")
+llm.update_system_prompt_with_context(retrieved_docs)
+
+# 3. 构建消息（历史 + 当前问题）
+messages = list(history) + [{"role": "user", "content": user_message}]
+
+# 4. 调用 LLM 生成回复
+reply = await llm.chat(messages)
+
+# 5. 更新历史 + 审计日志
+history.append({"role": "user", "content": user_message})
+history.append({"role": "assistant", "content": reply})</code></pre>
+
+<div class="callout callout-warn">
+  <div class="callout-title">架构隐患：系统提示词覆盖</div>
+  <code>llm.update_system_prompt_with_context()</code> 直接覆盖 <code>self.system_prompt</code>，在并发场景下多会话的 RAG 上下文会互相覆盖。建议改为将检索上下文作为消息列表的一部分传入，而非修改共享的 system_prompt 状态。
+</div>
+
+<h3>5.4 知识库管理</h3>
+
+<p>KnowledgePlugin（<code>plugins/knowledge/plugin.py</code>，430 行）实现了文档全生命周期管理：</p>
+
+<ul>
+  <li><strong>格式支持</strong>：PDF（PyMuPDF）、DOCX（python-docx）、MD/TXT — 与文档一致</li>
+  <li><strong>智能切片</strong>：500-800 token，重叠 50-100 — 与文档一致</li>
+  <li><strong>双写索引</strong>：同时写入 Chroma 向量库和 BM25 词面索引 — 与文档一致</li>
+  <li><strong>权限标记</strong>：文档级 ACL，通过 metadata 字段控制 — 与文档一致</li>
+  <li><strong>文件限制</strong>：单文件 50MB — 与文档一致</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="evolve">6. 模型进化引擎分析</h2>
+
+<h3>6.1 文档设计的三阶段进化策略</h3>
+
+<table>
+  <tr><th>阶段</th><th>触发条件</th><th>动作</th><th>文档描述</th></tr>
+  <tr><td>阶段一</td><td>初始部署 / 知识库更新</td><td>纯 RAG 问答</td><td>无需训练，直接检索增强</td></tr>
+  <tr><td>阶段二</td><td>积累 200+ QA 对话数据</td><td>离线 LoRA 微调</td><td>QLoRA 4-bit 量化，r=16，target_modules=[q_proj,v_proj]</td></tr>
+  <tr><td>阶段三</td><td>LoRA 效果稳定 + A/B 测试通过</td><td>全参数微调</td><td>可选阶段，需多 GPU 并行</td></tr>
+</table>
+
+<h3>6.2 代码实现验证</h3>
+
+<table>
+  <tr><th>模块</th><th>文件</th><th>功能</th><th>实现状态</th></tr>
+  <tr>
+    <td>ModelEvolvePlugin</td>
+    <td><code>plugins/evolve/plugin.py</code></td>
+    <td>进化策略判断 + 离线 LoRA 触发 + 每周评估 + A/B 测试</td>
+    <td><span class="badge badge-green">完整</span></td>
+  </tr>
+  <tr>
+    <td>TrainingDataBuilder</td>
+    <td><code>plugins/evolve/data_builder.py</code> (301行)</td>
+    <td>从知识库提取 QA → LLM 生成同义变体 → 混入通用数据 → Alpaca JSONL</td>
+    <td><span class="badge badge-green">完整</span></td>
+  </tr>
+  <tr>
+    <td>LoRATrainer</td>
+    <td><code>plugins/evolve/trainer.py</code></td>
+    <td>LoRA 微调训练</td>
+    <td><span class="badge badge-red">模拟实现</span></td>
+  </tr>
+  <tr>
+    <td>EvaluationPipeline</td>
+    <td><code>plugins/evolve/evaluator.py</code> (449行)</td>
+    <td>每周自动评估 + 准确率/幻觉率/简洁度评分 + A/B 测试 + 分桶分析</td>
+    <td><span class="badge badge-green">完整</span></td>
+  </tr>
+  <tr>
+    <td>DPOTrainer</td>
+    <td><code>plugins/evolve/dpo_trainer.py</code> (563行)</td>
+    <td>偏好数据收集 + DPO 数据集构建 + 训练脚本生成</td>
+    <td><span class="badge badge-yellow">混合实现</span></td>
+  </tr>
+  <tr>
+    <td>PreferenceStore</td>
+    <td><code>plugins/evolve/dpo_trainer.py</code></td>
+    <td>用户反馈收集（点赞/点踩/编辑）→ chosen/rejected 对</td>
+    <td><span class="badge badge-green">完整</span></td>
+  </tr>
+</table>
+
+<h3>6.3 模拟训练问题详解</h3>
+
+<h4>LoRATrainer — <code>plugins/evolve/trainer.py</code></h4>
+
+<div class="callout callout-bug">
+  <div class="callout-title">模拟训练 — 未接入真实 PEFT 框架</div>
+  <p><code>LoRATrainer._simulate_training()</code> 方法使用数学公式伪造 loss 下降曲线：</p>
+  <pre><code># 模拟 loss 曲线（非真实训练）
+train_loss = initial_loss * math.exp(-2.0 * progress) + final_loss
+train_loss += 0.03 * (1 - progress) * math.sin(step * 0.3)  # 震荡</code></pre>
+  <p>代码注释中给出了真实 PEFT 训练的代码模板（包含 <code>LoraConfig</code>、<code>get_peft_model</code>、<code>Trainer.train()</code>），但实际执行路径走的是 <code>_simulate_training</code>。<strong>这意味着当前版本无法产出可用的 LoRA adapter 权重</strong>。</p>
+</div>
+
+<h4>DPOTrainer — <code>plugins/evolve/dpo_trainer.py</code></h4>
+
+<div class="callout callout-warn">
+  <div class="callout-title">混合实现 — 脚本生成完整但执行为模拟</div>
+  <p>DPOTrainer 的实现比 LoRATrainer 更进一步：</p>
+  <ul>
+    <li><strong>完整实现</strong>：<code>PreferenceStore</code>（偏好数据收集/存储/DPO 数据集构建/统计）和 <code>_generate_training_script()</code>（生成基于 TRL 的完整 DPO 训练脚本）均为真实可用代码</li>
+    <li><strong>模拟部分</strong>：<code>_simulate_dpo_training()</code> 同样用数学公式伪造 loss 曲线，实际训练脚本被生成但未执行</li>
+    <li><strong>生产化路径</strong>：用户可手动运行生成的 <code>train_dpo.py</code> 脚本在 GPU 环境中完成真实训练</li>
+  </ul>
+</div>
+
+<h3>6.4 评估器实现亮点</h3>
+
+<p><code>EvaluationPipeline</code>（449 行）是进化引擎中实现最完整的模块：</p>
+
+<ul>
+  <li><strong>多维度评分</strong>：覆盖度（40%）+ 精确包含（20%）+ 否定检查（20%）+ 长度合理（20%）</li>
+  <li><strong>A/B 测试</strong>：支持对比 RAG-only vs RAG+LoRA，含分桶分析（短问题 vs 长问题）</li>
+  <li><strong>自动测试集生成</strong>：从知识库自动生成测试集，80/20 训练/测试分割</li>
+  <li><strong>历史追踪</strong>：记录每次评估结果，比较历史最佳，自动通知管理员</li>
+  <li><strong>P95 延迟统计</strong>：评估推理延迟并计算百分位数</li>
+</ul>
+
+<div class="callout callout-warn">
+  <div class="callout-title">评分算法局限</div>
+  <code>_score()</code> 方法使用关键词匹配 + 规则评分，未使用 LLM-as-Judge 或语义相似度。对于同义不同字的回答可能评分偏低。建议在 P2 阶段引入 embedding 相似度或 LLM 评分。
+</div>
+
+<h3>6.5 训练数据增强器</h3>
+
+<p><code>TrainingDataBuilder</code>（301 行）实现了完整的训练数据构建管道：</p>
+
+<ul>
+  <li><strong>QA 提取</strong>：支持从知识库对象、get_all_documents 方法、JSONL 文件三种来源提取</li>
+  <li><strong>同义变体</strong>：LLM 可用时通过 prompt 生成变体，不可用时回退到模板变体（7 种句式模板）</li>
+  <li><strong>防遗忘</strong>：混入 15% 通用对话数据（内置 10 条通用 QA）</li>
+  <li><strong>数据验证</strong>：<code>validate()</code> 方法检查字段完整性、长度异常、JSON 格式</li>
+  <li><strong>输出格式</strong>：标准 Alpaca JSONL（instruction/input/output）</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="security">7. 安全合规分析</h2>
+
+<h3>7.1 认证与授权</h3>
+
+<table>
+  <tr><th>安全特性</th><th>文档要求</th><th>代码实现</th><th>评级</th></tr>
+  <tr>
+    <td>JWT 认证</td>
+    <td>JWT Token 签发/验证/刷新</td>
+    <td><code>plugins/auth/plugin.py</code> — 完整实现，支持 Token 签发/验证/过期刷新</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>密码加密</td>
+    <td>bcrypt 哈希存储</td>
+    <td>bcrypt with salt，密码不落明文</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>登录限流</td>
+    <td>5 次失败/30 分钟锁定</td>
+    <td>内存计数器实现，5 次失败后锁定 30 分钟</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>RBAC</td>
+    <td>6 种角色（admin/manager/editor/viewer/api_user/guest）</td>
+    <td>6 角色权限矩阵，API 级别权限校验</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>API Key</td>
+    <td>支持 API Key 认证（第三方接入）</td>
+    <td>API Key 生成/验证/吊销，JSON 文件持久化</td>
+    <td><span class="badge badge-green">一致</span></td>
+  </tr>
+  <tr>
+    <td>数据持久化</td>
+    <td>PostgreSQL（文档描述）</td>
+    <td>JSON 文件持久化（当前实现）</td>
+    <td><span class="badge badge-yellow">降级实现</span></td>
+  </tr>
+</table>
+
+<div class="callout callout-warn">
+  <div class="callout-title">持久化降级</div>
+  文档描述使用 PostgreSQL 存储用户/API Key 数据，但当前代码使用 JSON 文件持久化。这在单实例部署下可用，但不支持多实例水平扩展。docker-compose.yml 中已定义 PostgreSQL 服务，推测为预留但未接入。
+</div>
+
+<h3>7.2 审计日志</h3>
+
+<p>AuditPlugin 实现了操作审计日志记录：</p>
+<ul>
+  <li>记录用户查询、管理操作、安全事件</li>
+  <li>ChatPlugin 中每次对话完成后自动记录审计日志（含用户 ID、查询内容、回复摘要、来源文档、延迟、渠道）</li>
+  <li>流式对话同样记录审计日志（<code>chat_query_stream</code> action）</li>
+</ul>
+
+<h3>7.3 合规检查</h3>
+
+<p><code>api/main.py</code> 中注册了合规检查端点，支持内容审核和敏感词过滤。文档中描述的合规要求在代码中有所体现。</p>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="deploy">8. 部署方案分析</h2>
+
+<h3>8.1 Docker Compose 服务清单</h3>
+
+<table>
+  <tr><th>#</th><th>服务名</th><th>镜像/用途</th><th>Profile</th><th>文档要求</th><th>评级</th></tr>
+  <tr><td>1</td><td>vllm</td><td>vLLM 推理服务（GPU）</td><td>默认</td><td>必需</td><td><span class="badge badge-green">一致</span></td></tr>
+  <tr><td>2</td><td>chroma</td><td>ChromaDB 向量数据库</td><td>默认</td><td>必需</td><td><span class="badge badge-green">一致</span></td></tr>
+  <tr><td>3</td><td>redis</td><td>缓存/会话管理</td><td>默认</td><td>必需</td><td><span class="badge badge-green">一致</span></td></tr>
+  <tr><td>4</td><td>postgres</td><td>关系型数据存储</td><td>默认</td><td>必需</td><td><span class="badge badge-green">一致</span></td></tr>
+  <tr><td>5</td><td>api</td><td>EchoServe API 服务</td><td>默认</td><td>必需</td><td><span class="badge badge-green">一致</span></td></tr>
+  <tr><td>6</td><td>nginx</td><td>反向代理/负载均衡</td><td>默认</td><td>必需</td><td><span class="badge badge-green">一致</span></td></tr>
+  <tr><td>7</td><td>prometheus</td><td>指标采集</td><td>monitoring</td><td>可选</td><td><span class="badge badge-green">一致</span></td></tr>
+  <tr><td>8</td><td>grafana</td><td>监控看板</td><td>monitoring</td><td>可选</td><td><span class="badge badge-green">一致</span></td></tr>
+  <tr><td>9</td><td>trainer</td><td>离线 LoRA 微调训练服务（GPU, Dockerfile.trainer）</td><td>training</td><td>可选</td><td><span class="badge badge-green">一致</span></td></tr>
+  <tr><td>10</td><td>web-dev</td><td>前端开发服务器（Node 20）</td><td>dev</td><td>开发用</td><td><span class="badge badge-green">一致</span></td></tr>
+</table>
+
+<h3>8.2 Profile 机制</h3>
+
+<p>docker-compose.yml 使用 Docker Compose profiles 机制：</p>
+<ul>
+  <li><strong>默认 profile</strong>：vllm + chroma + redis + postgres + api + nginx（生产最小集）</li>
+  <li><strong>monitoring profile</strong>：追加 prometheus + grafana</li>
+  <li><strong>training profile</strong>：追加 trainer 服务（使用独立 Dockerfile.trainer，GPU 运行时，训练完成即退出 <code>restart: "no"</code>），通过 <code>docker compose --profile training up</code> 启动</li>
+  <li><strong>dev profile</strong>：追加 web-dev 前端开发服务器（Node 20 Alpine），通过 <code>docker compose --profile dev up</code> 启动</li>
+</ul>
+
+<h3>8.3 配置管理</h3>
+
+<p><code>config/settings.py</code> 使用 Pydantic Settings 实现 11 个配置模块，全部通过环境变量注入：</p>
+
+<table>
+  <tr><th>配置模块</th><th>关键配置项</th></tr>
+  <tr><td>ModelConfig</td><td>name, base_model, lora_adapters, device</td></tr>
+  <tr><td>VLLMConfig</td><td>host, api_key, port, gpu_memory_utilization</td></tr>
+  <tr><td>ChromaConfig</td><td>host, port, collection_name, persist_path</td></tr>
+  <tr><td>EmbeddingConfig</td><td>model_name, dimension, batch_size</td></tr>
+  <tr><td>RetrievalConfig</td><td>bm25_weight, vector_weight, rrf_k, reranker_enabled</td></tr>
+  <tr><td>APIConfig</td><td>host, port, workers, cors_origins</td></tr>
+  <tr><td>SecurityConfig</td><td>jwt_secret, jwt_expiry, bcrypt_rounds, rate_limit</td></tr>
+  <tr><td>LogConfig</td><td>level, format, file_path, max_size, backup_count</td></tr>
+  <tr><td>MonitoringConfig</td><td>prometheus_enabled, metrics_path, scrape_interval</td></tr>
+  <tr><td>EvolveConfig</td><td>auto_train, eval_interval, min_qa_pairs, lora_r, lora_alpha</td></tr>
+  <tr><td>BackupConfig</td><td>enabled, interval, retention, storage_path</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="bugs">9. Bug 与差异清单</h2>
+
+<h3>9.1 确认 Bug</h3>
+
+<div class="callout callout-bug">
+  <div class="callout-title">BUG-001: 流式对话历史记录使用字符串字面量而非变量</div>
+  <p><strong>文件</strong>: <code>plugins/chat/plugin.py:178</code></p>
+  <p><strong>现象</strong>: 流式对话完成后，更新会话历史时，用户消息被写死为字符串 <code>"user_message"</code> 而非使用变量 <code>user_message</code> 的值。</p>
+  <p><strong>问题代码</strong>:</p>
+  <pre><code># 第 178 行（流式 chat_stream 方法中）
+history.append({"role": "user", "content": "user_message"})  # ← Bug: 字符串字面量
+# 应为：
+history.append({"role": "user", "content": user_message})    # ← 变量引用</code></pre>
+  <p><strong>对比</strong>: 非流式 <code>chat()</code> 方法第 106 行写法正确：<code>history.append({"role": "user", "content": user_message})</code></p>
+  <p><strong>影响</strong>: 所有流式对话的历史记录中，用户消息被错误记录为字面量 <code>"user_message"</code>，导致多轮对话上下文完全失效——LLM 在后续轮次中看到的用户消息永远是 "user_message" 而非实际内容。</p>
+  <p><strong>修复方案</strong>: 将第 178 行的 <code>"user_message"</code> 改为 <code>user_message</code>（去掉引号）。</p>
+</div>
+
+<h3>9.2 重复类定义</h3>
+
+<div class="callout callout-warn">
+  <div class="callout-title">ISSUE-001: trainer.py 末尾存在重复的 ModelEvolvePlugin 类定义</div>
+  <p><strong>文件</strong>: <code>plugins/evolve/trainer.py</code> 文件末尾</p>
+  <p><strong>现象</strong>: <code>trainer.py</code> 文件末尾存在一个与 <code>plugins/evolve/plugin.py</code> 中 <code>ModelEvolvePlugin</code> 类定义重复的代码块。这不会导致运行时错误（Python 后定义的会覆盖前面的），但会造成维护混乱——开发者可能修改了 <code>plugin.py</code> 中的版本而忘记同步 <code>trainer.py</code> 中的重复定义。</p>
+  <p><strong>修复方案</strong>: 删除 <code>trainer.py</code> 末尾的 <code>ModelEvolvePlugin</code> 类定义，仅保留 LoRATrainer 相关代码。</p>
+</div>
+
+<h3>9.3 架构差异与隐患</h3>
+
+<table>
+  <tr><th>#</th><th>差异点</th><th>详情</th><th>严重程度</th><th>建议</th></tr>
+  <tr>
+    <td>D-001</td>
+    <td>系统提示词并发覆盖</td>
+    <td><code>LLMPlugin.update_system_prompt_with_context()</code> 直接修改 <code>self.system_prompt</code>，多会话并发时 RAG 上下文会互相覆盖</td>
+    <td><span class="badge badge-red">高</span></td>
+    <td>改为将检索上下文作为 messages 参数传入，不修改共享状态</td>
+  </tr>
+  <tr>
+    <td>D-002</td>
+    <td>BM25 全内存索引</td>
+    <td><code>BM25Retriever</code> 索引存储在内存中，重启后丢失。文档未明确要求持久化，但生产环境需要</td>
+    <td><span class="badge badge-yellow">中</span></td>
+    <td>增加索引序列化/反序列化，或迁移到 Elasticsearch</td>
+  </tr>
+  <tr>
+    <td>D-003</td>
+    <td>会话历史内存存储</td>
+    <td><code>ChatPlugin._sessions</code> 使用 OrderedDict 内存存储，重启后丢失。docker-compose 中定义了 Redis 但未接入</td>
+    <td><span class="badge badge-yellow">中</span></td>
+    <td>接入 Redis 实现会话持久化</td>
+  </tr>
+  <tr>
+    <td>D-004</td>
+    <td>用户认证数据 JSON 持久化</td>
+    <td>AuthPlugin 使用 JSON 文件存储用户数据，docker-compose 中定义了 PostgreSQL 但未接入</td>
+    <td><span class="badge badge-yellow">中</span></td>
+    <td>接入 PostgreSQL 或使用 SQLAlchemy ORM 层</td>
+  </tr>
+  <tr>
+    <td>D-005</td>
+    <td>审计日志延迟计算错误</td>
+    <td><code>chat/plugin.py:131</code> 非流式对话的 latency 计算使用 <code>time.time() - self._session_timestamps.get(session_id, time.time())</code>，但 <code>_session_timestamps</code> 在第 88 行已被更新为当前时间，导致 latency 始终接近 0</td>
+    <td><span class="badge badge-yellow">中</span></td>
+    <td>在调用 LLM 前记录 start_time，调用后计算差值</td>
+  </tr>
+  <tr>
+    <td>D-006</td>
+    <td>评估器评分算法简陋</td>
+    <td><code>evaluator.py _score()</code> 使用关键词匹配 + 规则评分，未使用语义相似度或 LLM-as-Judge</td>
+    <td><span class="badge badge-yellow">低</span></td>
+    <td>P2 阶段引入 embedding 相似度评分</td>
+  </tr>
+</table>
+
+<h3>9.4 命名差异汇总</h3>
+
+<table>
+  <tr><th>文档术语</th><th>代码实际</th><th>位置</th><th>影响</th></tr>
+  <tr><td><code>ctx.on()</code></td><td><code>ctx.subscribe()</code></td><td><code>core/context.py</code></td><td>无</td></tr>
+  <tr><td><code>fiber.teardown()</code></td><td><code>fiber.destroy()</code></td><td><code>core/fiber.py</code></td><td>无</td></tr>
+  <tr><td><code>BaizePlugin.dispose()</code></td><td><code>BaizePlugin.on_destroy()</code></td><td><code>core/plugin.py</code></td><td>无（代码更合理）</td></tr>
+  <tr><td>PostgreSQL 持久化</td><td>JSON 文件持久化</td><td><code>plugins/auth/plugin.py</code></td><td>不支持多实例</td></tr>
+  <tr><td>Redis 会话管理</td><td>内存 OrderedDict</td><td><code>plugins/chat/plugin.py</code></td><td>重启丢失</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="maturity">10. 成熟度评级</h2>
+
+<h3>10.1 分维度评级</h3>
+
+<table>
+  <tr><th>维度</th><th>评级</th><th>得分</th><th>说明</th></tr>
+  <tr>
+    <td>架构设计</td>
+    <td><span class="badge badge-green">优秀</span></td>
+    <td><span class="dots"><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span></span></td>
+    <td>四层架构清晰，Core 三件套设计精良，Fiber 状态机超出文档要求</td>
+  </tr>
+  <tr>
+    <td>插件化</td>
+    <td><span class="badge badge-green">优秀</span></td>
+    <td><span class="dots"><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot"></span></span></td>
+    <td>13 插件全部实现，依赖注入解耦良好。扣分点：部分插件间通信仍有硬编码</td>
+  </tr>
+  <tr>
+    <td>RAG 检索</td>
+    <td><span class="badge badge-green">优秀</span></td>
+    <td><span class="dots"><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot"></span></span></td>
+    <td>BM25+Vector+RRF+Cross-Encoder 全链路实现。扣分点：系统提示词并发覆盖隐患</td>
+  </tr>
+  <tr>
+    <td>模型进化</td>
+    <td><span class="badge badge-yellow">良好</span></td>
+    <td><span class="dots"><span class="dot on-yellow"></span><span class="dot on-yellow"></span><span class="dot on-yellow"></span><span class="dot on-yellow"></span><span class="dot"></span></span></td>
+    <td>策略/评估/数据构建完整，但 LoRA 和 DPO 训练均为模拟实现</td>
+  </tr>
+  <tr>
+    <td>安全合规</td>
+    <td><span class="badge badge-green">良好</span></td>
+    <td><span class="dots"><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot"></span></span></td>
+    <td>JWT+bcrypt+限流+RBAC 完整。扣分点：持久化降级为 JSON 文件</td>
+  </tr>
+  <tr>
+    <td>部署方案</td>
+    <td><span class="badge badge-green">优秀</span></td>
+    <td><span class="dots"><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span></span></td>
+    <td>Docker Compose 10 服务 + 3 profile（默认/monitoring/training/dev），配置全环境变量注入，trainer 服务含 GPU 资源声明和健康检查</td>
+  </tr>
+  <tr>
+    <td>代码质量</td>
+    <td><span class="badge badge-yellow">良好</span></td>
+    <td><span class="dots"><span class="dot on-yellow"></span><span class="dot on-yellow"></span><span class="dot on-yellow"></span><span class="dot on-yellow"></span><span class="dot"></span></span></td>
+    <td>注释充分、结构清晰。扣分点：1 个确认 Bug + 1 个重复类定义 + 延迟计算错误</td>
+  </tr>
+  <tr>
+    <td>文档一致性</td>
+    <td><span class="badge badge-green">良好</span></td>
+    <td><span class="dots"><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot on-green"></span><span class="dot"></span></span></td>
+    <td>核心架构高度一致。差异主要是命名变更和持久化降级</td>
+  </tr>
+</table>
+
+<h3>10.2 整体评级</h3>
+
+<div class="callout callout-ok">
+  <div class="callout-title">整体成熟度：B+（可交付 MVP，生产化需补齐训练模块）</div>
+  <p>EchoServe V0.1.0、插件化、RAG 检索、安全认证、部署方案方面达到了生产级 MVP 标准。主要短板在模型进化引擎的训练执行层（模拟实现）和数据持久化层（JSON 文件 vs PostgreSQL/Redis）。对于纯 RAG 问答场景，系统已可投入生产；对于需要模型自进化的场景，需补齐 LoRA/DPO 真实训练流程。</p>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="roadmap">11. 改进路线图</h2>
+
+<h3>11.1 P0 紧急修复（上线前必须）</h3>
+
+<table>
+  <tr><th>#</th><th>任务</th><th>文件</th><th>预估工时</th></tr>
+  <tr><td>1</td><td>修复 BUG-001: 流式对话历史字符串字面量 Bug</td><td><code>plugins/chat/plugin.py:178</code></td><td>5 分钟</td></tr>
+  <tr><td>2</td><td>修复 D-005: 非流式对话延迟计算错误</td><td><code>plugins/chat/plugin.py:88,131</code></td><td>15 分钟</td></tr>
+  <tr><td>3</td><td>删除 trainer.py 末尾重复的 ModelEvolvePlugin 类定义</td><td><code>plugins/evolve/trainer.py</code></td><td>5 分钟</td></tr>
+</table>
+
+<h3>11.2 P1 架构修复（生产化前必须）</h3>
+
+<table>
+  <tr><th>#</th><th>任务</th><th>说明</th><th>预估工时</th></tr>
+  <tr><td>1</td><td>修复系统提示词并发覆盖</td><td>将 RAG 上下文改为 messages 参数传入，不修改 LLMPlugin 共享状态</td><td>4 小时</td></tr>
+  <tr><td>2</td><td>接入 Redis 会话持久化</td><td>ChatPlugin 会话历史从内存 OrderedDict 迁移到 Redis，支持重启恢复和多实例</td><td>1 天</td></tr>
+  <tr><td>3</td><td>接入 PostgreSQL 数据持久化</td><td>AuthPlugin 用户数据、API Key 从 JSON 文件迁移到 PostgreSQL</td><td>1 天</td></tr>
+  <tr><td>4</td><td>BM25 索引持久化</td><td>增加索引序列化/反序列化，或迁移到 Elasticsearch</td><td>4 小时</td></tr>
+</table>
+
+<h3>11.3 P2 训练模块生产化</h3>
+
+<table>
+  <tr><th>#</th><th>任务</th><th>说明</th><th>预估工时</th></tr>
+  <tr><td>1</td><td>LoRATrainer 接入真实 PEFT 训练</td><td>将 <code>_simulate_training()</code> 替换为真实 PEFT 训练代码（注释中已有模板），接入 Axolotl 或原生 transformers Trainer</td><td>3 天</td></tr>
+  <tr><td>2</td><td>DPOTrainer 接入真实 TRL 训练</td><td>将 <code>_simulate_dpo_training()</code> 替换为执行生成的 <code>train_dpo.py</code> 脚本，或直接在进程内调用 TRL DPOTrainer</td><td>2 天</td></tr>
+  <tr><td>3</td><td>训练任务异步化</td><td>训练任务通过 Celery 或 asyncio 后台任务执行，不阻塞 API 服务</td><td>2 天</td></tr>
+  <tr><td>4</td><td>评估器引入 LLM-as-Judge</td><td>在 <code>_score()</code> 中增加 LLM 评分维度，替代纯关键词匹配</td><td>1 天</td></tr>
+  <tr><td>5</td><td>GPU 资源调度</td><td>训练时动态分配 GPU 资源，避免与推理服务争抢显存</td><td>2 天</td></tr>
+</table>
+
+<h3>11.4 P3 增强优化（可选）</h3>
+
+<ul>
+  <li><strong>多模态支持</strong>：知识库支持图片/表格解析（当前仅文本）</li>
+  <li><strong>模型路由</strong>：根据问题复杂度动态切换模型（小模型处理简单问题，大模型处理复杂问题）</li>
+  <li><strong>知识图谱</strong>：引入 Neo4j 构建知识图谱，增强关联推理能力</li>
+  <li><strong>联邦学习</strong>：多租户场景下的隐私保护训练</li>
+  <li><strong>前端增强</strong>：实时训练进度可视化、A/B 测试看板</li>
+</ul>
+
+<h3>11.5 模拟训练模块生产化改造建议</h3>
+
+<h4>LoRATrainer 改造方案</h4>
+
+<pre><code># 当前：_simulate_training() 用数学公式伪造 loss
+# 改造：直接调用 PEFT 训练
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
+from peft import LoraConfig, get_peft_model
+from datasets import load_dataset
+
+def train_real(self, train_data_path: str):
+    """真实 LoRA 训练"""
+    # 1. 加载基础模型（4-bit 量化）
+    model = AutoModelForCausalLM.from_pretrained(
+        self.base_model,
+        load_in_4bit=True,           # QLoRA 4-bit
+        device_map="auto",
+        trust_remote_code=True,
+    )
+
+    # 2. 配置 LoRA
+    lora_config = LoraConfig(
+        r=16,                         # 秩
+        lora_alpha=32,                # 缩放因子
+        lora_dropout=0.05,
+        target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+        task_type="CAUSAL_LM",
+    )
+    model = get_peft_model(model, lora_config)
+
+    # 3. 加载数据集
+    dataset = load_dataset("json", data_files=train_data_path, split="train")
+
+    # 4. 训练配置
+    args = TrainingArguments(
+        output_dir=self.output_dir,
+        num_train_epochs=3,
+        per_device_train_batch_size=4,
+        gradient_accumulation_steps=4,
+        learning_rate=2e-4,
+        warmup_ratio=0.03,
+        lr_scheduler_type="cosine",
+        bf16=True,
+        save_steps=100,
+        logging_steps=10,
+    )
+
+    # 5. 执行训练
+    trainer = Trainer(model=model, args=args, train_dataset=dataset)
+    trainer.train()
+    model.save_pretrained(self.output_dir)
+
+    return trainer.state.log_history[-1]</code></pre>
+
+<h4>DPOTrainer 改造方案</h4>
+
+<p>DPOTrainer 的改造更简单——<code>_generate_training_script()</code> 已生成完整的 TRL 训练脚本，只需将 <code>_simulate_dpo_training()</code> 替换为实际执行该脚本即可：</p>
+
+<pre><code>import subprocess
+
+def _run_real_dpo_training(self, script_path):
+    """执行真实 DPO 训练脚本"""
+    result = subprocess.run(
+        ["python", str(script_path)],
+        capture_output=True,
+        text=True,
+        timeout=7200,  # 2小时超时
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"DPO 训练失败: {result.stderr}")
+    # 从输出目录读取训练结果
+    return self._parse_training_result()</code></pre>
+
+<hr style="border: none; border-top: 1px solid var(--border); margin: 48px 0;">
+
+<p style="color: var(--text-dim); font-size: 13px; text-align: center;">
+  EchoServe 开发文档与代码一致性分析报告 | 分析日期: 2026-08-20 | 报告生成: ZhaoGong AI Engineering
+</p>
+
+  </div>
+</div>
+
+<script>
+  // ─── Sidebar active highlight ───
+  const sidebarLinks = document.querySelectorAll('.sidebar a');
+  const sections = document.querySelectorAll('h2[id]');
+
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop - 100;
+      if (window.scrollY >= sectionTop) {
+        current = section.getAttribute('id');
+      }
+    });
+    sidebarLinks.forEach(link => {
+      link.classList.remove('toc-active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('toc-active');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,32 @@
+# EchoServe Core Dependencies
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart>=0.0.6
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+httpx>=0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+websockets>=11.0
+
+# RAG / LLM
+httpx
+
+# WeChat Enterprise
+wechatpy>=1.8.18
+cryptography>=41.0.0
+
+# Data
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Monitoring
+prometheus-client>=0.17.0
+
+# Training (optional, for LoRA)
+# torch>=2.0.0
+# transformers>=4.35.0
+# peft>=0.6.0
+# datasets>=2.14.0
+# bitsandbytes>=0.41.0
