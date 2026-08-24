@@ -68,3 +68,6 @@ Thumbs.db
 *.temp
 tmp/
 temp/
+
+# 敏感启动脚本（含真实密钥配置）
+start_wechat_kf_demo.bat
