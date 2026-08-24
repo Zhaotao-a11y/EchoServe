@@ -1,6 +1,6 @@
 # EchoServe — 企业级本地客服智能体系统
 
-> **面向 B 端客服场景，当客服会话积累达到阈值，自动利用真实业务对话蒸馏优化本地模型，实现服务数据闭环自迭代。**
+> **面向 B 端客服场景，当客服会话积累达到阈值，自动利用真实业务对话蒸馏优化本地模型，实现服务数据闭环自迭代。EchoServe不只是LoRA模型可以热切换，各类业务技能插件同样支持热插拔，无需重启服务，动态增减业务能力**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
