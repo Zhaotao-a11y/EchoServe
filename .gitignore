@@ -37,6 +37,7 @@ data/chroma/
 data/chroma_cs/
 data/knowledge/
 data/logs/
+data/auth/
 !data/.gitkeep
 
 # 构建产物
