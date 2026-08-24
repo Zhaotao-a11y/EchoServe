@@ -79,7 +79,7 @@ function LoginPage() {
 
         {/* 提示 */}
         <div class="mt-6 text-center text-xs text-gray-400">
-          <p>默认管理员: admin / EchoServe#Admin2026</p>
+          <p>默认管理员: admin / [请在系统设置中配置密码]</p>
           <p class="mt-1">⚠️ 首次登录后请立即修改密码</p>
         </div>
       </div>

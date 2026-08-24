@@ -121,8 +121,11 @@ def _build_webhook_url(webhook_path: str) -> str:
         return ""
     if webhook_path.startswith("http"):
         return webhook_path
-    # 默认使用 ngrok 域名拼接
-    return f"https://eaten-earthling-garlic.ngrok-free.dev{webhook_path}"
+    # 默认使用环境变量中的 WEBHOOK_BASE_URL 或空
+    base_url = os.getenv("WEBHOOK_BASE_URL", "")
+    if base_url:
+        return f"{base_url}{webhook_path}"
+    return webhook_path
 
 
 # ─── API 端点 ──────────────────────────────────────
@@ -161,11 +164,13 @@ async def save_wechat_kf_config(
     # 提取 webhook path（如果传的是完整 URL，只保留 path 部分）
     url_val = request.url.strip()
     if url_val:
-        if url_val.startswith("https://eaten-earthling-garlic.ngrok-free.dev"):
-            url_val = url_val.replace("https://eaten-earthling-garlic.ngrok-free.dev", "")
-        elif url_val.startswith("http://localhost:8080"):
-            url_val = url_val.replace("http://localhost:8080", "")
-        elif not url_val.startswith("/"):
+        # 移除已知的本地/开发域名前缀，保留 path 部分
+        local_prefixes = ["http://localhost:8080", "https://localhost:8080"]
+        for prefix in local_prefixes:
+            if url_val.startswith(prefix):
+                url_val = url_val.replace(prefix, "")
+                break
+        if not url_val.startswith("/"):
             # 自定义域名，保留完整 URL
             pass
     env_updates["WECHAT_KF_WEBHOOK_PATH"] = url_val

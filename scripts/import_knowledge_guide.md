@@ -83,7 +83,7 @@ python scripts/ingest_knowledge.py \
 # 1. 先登录获取 Token
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
     -H "Content-Type: application/json" \
-    -d '{"username":"admin","password":"EchoServe#Admin2026"}' \
+    -d '{"username":"admin","password":"YOUR_ADMIN_PASSWORD"}' \
     | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 
 # 2. 导入 JSONL
@@ -98,7 +98,7 @@ curl -X POST http://localhost:8080/api/knowledge/ingest \
 ### 方式三：Web 后台上传（适合小文件/测试）
 
 1. 打开浏览器访问：`http://localhost:8080`
-2. 登录：`admin` / `EchoServe#Admin2026`
+2. 登录：`admin` / [请在系统设置中配置密码]
 3. 进入知识库管理页面
 4. 点击「批量导入」→ 选择 `.jsonl` 文件
 5. 等待索引构建完成
@@ -212,7 +212,7 @@ python scripts/full_import_pipeline.py \
     --input data/customer_service_data.md \
     --host http://localhost:8080 \
     --username admin \
-    --password EchoServe#Admin2026
+    --password YOUR_ADMIN_PASSWORD
 ```
 
 这个脚本会自动：转换 → 登录获取Token → 批量导入 → 验证统计 → 测试检索

@@ -52,8 +52,8 @@ echo [OK] vLLM ready
 :start_echoseve
 echo.
 echo [Step 3/5] Starting EchoServe...
-echo Login: admin / EchoServe#Admin2026
-echo API: http://localhost:8080
+echo   API: http://localhost:8080
+echo   Please ensure admin password is set via ECHOSEVE_ADMIN_PASSWORD env var
 echo.
 
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8080
@@ -102,7 +102,7 @@ echo [OK] Ollama ready
 REM 启动 EchoServe
 echo.
 echo [INFO] Starting EchoServe...
-echo Login: admin / EchoServe#Admin2026
+echo Login: admin / [Set via ECHOSEVE_ADMIN_PASSWORD env var]
 echo API: http://localhost:8080
 echo.
 

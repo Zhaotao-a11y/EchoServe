@@ -1,11 +1,17 @@
+import os
 import requests
 import time
-import json
+
+# 从环境变量读取密码，未设置时使用提示
+ADMIN_PASSWORD = os.getenv("ECHOSERVE_ADMIN_PASSWORD", "")
+if not ADMIN_PASSWORD:
+    print("[WARN] 请在环境变量 ECHOSERVE_ADMIN_PASSWORD 中设置管理员密码")
+    ADMIN_PASSWORD = input("请输入管理员密码: ")
 
 # 1. 登录获取 token
 login_resp = requests.post('http://localhost:8080/api/auth/login', json={
     'username': 'admin',
-    'password': 'EchoServe#Admin2026'
+    'password': ADMIN_PASSWORD
 })
 if login_resp.status_code != 200:
     print(f"Login failed: {login_resp.status_code} - {login_resp.text}")

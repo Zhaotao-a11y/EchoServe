@@ -145,7 +145,7 @@ Write-Info "模型: $MODEL"
 Write-Info "后台地址: http://localhost:$ECHOSEVE_PORT"
 Write-Info "API 文档: http://localhost:$ECHOSEVE_PORT/docs"
 Write-Info ""
-Write-Info "登录账号: admin / EchoServe#Admin2026"
+    Write-Info "登录账号: admin / [请在首次登录后通过系统设置修改密码]"
 Write-Info ""
 Write-Info "按 Ctrl+C 停止服务"
 Write-Host "============================================================" -ForegroundColor Cyan

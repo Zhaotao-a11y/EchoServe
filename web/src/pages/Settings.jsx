@@ -281,7 +281,7 @@ function SettingsPage() {
               <input
                 value={wechatConfig.token}
                 onChange={e => setWechatConfig({...wechatConfig, token: e.target.value})}
-                placeholder="例: Tgl6P"
+                placeholder="请输入Token"
                 class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>

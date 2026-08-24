@@ -301,7 +301,7 @@ ngrok http 8080 --domain=your-domain.ngrok-free.dev
 
 访问 `http://localhost:8080`，默认账号：
 - 用户名：`admin`
-- 密码：`EchoServe#Admin2026`
+- 密码：请在首次登录前通过环境变量 `ECHOSEVE_ADMIN_PASSWORD` 设置
 
 ### 2. 上传知识库文档
 
