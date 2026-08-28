@@ -1,4 +1,4 @@
-# EchoServe V0.1.0
+# EchoServe V0.2.0
 
 > 5 分钟从零到可用
 
@@ -20,11 +20,11 @@
 
 ```bash
 # 1. 上传项目
-scp EchoServe_V0.1.0.zip user@server:/data/
+scp EchoServe_V0.2.0.zip user@server:/data/
 ssh user@server
 
 # 2. 解压
-cd /data && unzip EchoServe_V0.1.0.zip && cd echoseve-b-mvp
+cd /data && unzip EchoServe_V0.2.0.zip && cd echoseve-b-mvp
 
 # 3. 配置
 cp .env.example .env
