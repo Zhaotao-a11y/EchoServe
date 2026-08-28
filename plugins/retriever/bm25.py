@@ -10,10 +10,10 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 from dataclasses import dataclass, asdict
 
-logger = logging.getLogger("echoseve.retriever.bm25")
+logger = logging.getLogger("echoserve.retriever.bm25")
 
 # 尝试导入依赖
 try:
@@ -36,8 +36,8 @@ class BM25Doc:
     """BM25 索引中的文档"""
     id: str
     content: str
-    metadata: Dict[str, Any]
-    tokens: List[str]
+    metadata: dict[str, Any]
+    tokens: list[str]
 
 
 class BM25Retriever:
@@ -52,16 +52,16 @@ class BM25Retriever:
         results = await retriever.search("退货流程", k=5)
     """
 
-    def __init__(self, k1: float = 1.5, b: float = 0.75, persist_path: Optional[str] = None):
+    def __init__(self, k1: float = 1.5, b: float = 0.75, persist_path: (str | None) = None):
         self.k1 = k1
         self.b = b
-        self._docs: List[BM25Doc] = []
-        self._doc_map: Dict[str, int] = {}  # id -> index
+        self._docs: list[BM25Doc] = []
+        self._doc_map: dict[str, int] = {}  # id -> index
         self._bm25 = None
-        self._corpus_tokens: List[List[str]] = []
+        self._corpus_tokens: list[list[str]] = []
         self._persist_path = Path(persist_path) if persist_path else None
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """中文分词"""
         text = text.lower().strip()
         # 去除多余空白
@@ -77,7 +77,7 @@ class BM25Retriever:
         tokens = [t for t in tokens if t.strip() and t not in '，。！？、；：""''（）【】《》\n\r\t']
         return tokens
 
-    def add_documents(self, documents: List[Dict[str, Any]]):
+    def add_documents(self, documents: list[dict[str, Any]]):
         """批量添加文档"""
         for doc_dict in documents:
             doc_id = doc_dict.get("id") or doc_dict.get("doc_id") or f"doc_{len(self._docs)}"
@@ -109,7 +109,7 @@ class BM25Retriever:
             return
         self._bm25 = BM25Okapi(self._corpus_tokens, k1=self.k1, b=self.b)
 
-    async def search(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
+    async def search(self, query: str, k: int = 10) -> list[dict[str, Any]]:
         """
         执行 BM25 检索。
 
@@ -166,7 +166,7 @@ class BM25Retriever:
             except Exception as e:
                 logger.warning(f"[BM25] Auto-save failed: {e}")
 
-    def save(self, path: Optional[str] = None):
+    def save(self, path: (str | None) = None):
         """
         将索引序列化到 JSON 文件。
 
@@ -189,7 +189,7 @@ class BM25Retriever:
             json.dump(data, f, ensure_ascii=False)
         logger.info(f"[BM25] Index saved: {len(self._docs)} docs -> {save_path}")
 
-    def load(self, path: Optional[str] = None) -> int:
+    def load(self, path: (str | None) = None) -> int:
         """
         从 JSON 文件加载索引。
 

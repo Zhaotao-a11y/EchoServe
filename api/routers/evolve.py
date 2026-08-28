@@ -3,15 +3,17 @@ EchoServe P1 — 模型进化引擎 API 路由
 """
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Optional
+import time
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.deps import get_context, verify_token
 from core.context import BaizeContext
 
-logger = logging.getLogger("echoseve.api.evolve")
+logger = logging.getLogger("echoserve.api.evolve")
 
 router = APIRouter()
 
@@ -19,13 +21,18 @@ router = APIRouter()
 # ─── 请求模型 ──────────────────────────────────
 
 class TriggerLoraRequest(BaseModel):
-    train_data_path: Optional[str] = None
-    output_dir: Optional[str] = None
+    train_data_path: str | None = None
+    output_dir: str | None = None
 
 
 class TriggerFullRequest(BaseModel):
-    train_data_path: Optional[str] = None
-    output_dir: Optional[str] = None
+    train_data_path: str | None = None
+    output_dir: str | None = None
+
+
+class StartTrainV2Request(BaseModel):
+    train_data_path: str | None = None
+    output_dir: str | None = None
 
 
 # ─── 进化状态 ──────────────────────────────────
@@ -158,22 +165,24 @@ async def run_evaluation(
     if not chat:
         raise HTTPException(status_code=503, detail="对话管理器未就绪")
 
-    import time
+    # 获取当前运行的事件循环（避免创建嵌套循环）
+    main_loop = asyncio.get_running_loop()
 
     def predict(question: str) -> str:
-        """同步预测包装"""
+        """同步预测包装——通过 run_coroutine_threadsafe 在主事件循环上调度"""
         try:
-            loop = __import__("asyncio").new_event_loop()
-            __import__("asyncio").set_event_loop(loop)
-            result = loop.run_until_complete(
-                chat.chat(session_id=f"eval_{int(time.time())}", user_message=question)
+            future = asyncio.run_coroutine_threadsafe(
+                chat.chat(session_id=f"eval_{int(time.time())}", user_message=question),
+                main_loop,
             )
+            result = future.result(timeout=60)
             return result.get("reply", "")
         except Exception as e:
             logger.warning(f"Evaluation predict() failed for question '{question[:50]}': {e}")
             return ""
 
-    report = evolver.run_evaluation(predict)
+    # 在线程池中运行同步评估，避免阻塞事件循环
+    report = await asyncio.to_thread(evolver.run_evaluation, predict)
     return report
 
 

@@ -19,25 +19,25 @@ from __future__ import annotations
 import json
 import time
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any
 from collections import OrderedDict
 
-logger = logging.getLogger("echoseve.chat.session_store")
+logger = logging.getLogger("echoserve.chat.session_store")
 
 
 class SessionStore:
     """会话存储抽象基类"""
 
-    async def save_session(self, session_id: str, messages: List[Dict[str, str]]) -> None:
+    async def save_session(self, session_id: str, messages: list[dict[str, str]]) -> None:
         raise NotImplementedError
 
-    async def load_session(self, session_id: str) -> List[Dict[str, str]]:
+    async def load_session(self, session_id: str) -> list[dict[str, str]]:
         raise NotImplementedError
 
     async def delete_session(self, session_id: str) -> bool:
         raise NotImplementedError
 
-    async def list_sessions(self) -> List[str]:
+    async def list_sessions(self) -> list[str]:
         raise NotImplementedError
 
     async def update_timestamp(self, session_id: str) -> None:
@@ -58,11 +58,11 @@ class MemorySessionStore(SessionStore):
     """
 
     def __init__(self, max_sessions: int = 1000):
-        self._sessions: OrderedDict[str, List[Dict[str, str]]] = OrderedDict()
-        self._timestamps: Dict[str, float] = {}
+        self._sessions: Ordereddict[str, list[dict[str, str]]] = OrderedDict()
+        self._timestamps: dict[str, float] = {}
         self._max_sessions = max_sessions
 
-    async def save_session(self, session_id: str, messages: List[Dict[str, str]]) -> None:
+    async def save_session(self, session_id: str, messages: list[dict[str, str]]) -> None:
         if session_id in self._sessions:
             self._sessions.pop(session_id)
         self._sessions[session_id] = list(messages)
@@ -74,7 +74,7 @@ class MemorySessionStore(SessionStore):
             self._timestamps.pop(oldest_id, None)
             logger.warning(f"[MemoryStore] Evicted oldest session: {oldest_id}")
 
-    async def load_session(self, session_id: str) -> List[Dict[str, str]]:
+    async def load_session(self, session_id: str) -> list[dict[str, str]]:
         if session_id in self._sessions:
             # LRU: 移到末尾
             history = self._sessions.pop(session_id)
@@ -89,7 +89,7 @@ class MemorySessionStore(SessionStore):
             return True
         return False
 
-    async def list_sessions(self) -> List[str]:
+    async def list_sessions(self) -> list[str]:
         return list(self._sessions.keys())
 
     async def update_timestamp(self, session_id: str) -> None:
@@ -172,7 +172,7 @@ class RedisSessionStore(SessionStore):
     def _index_key(self) -> str:
         return f"{self._prefix}index"
 
-    async def save_session(self, session_id: str, messages: List[Dict[str, str]]) -> None:
+    async def save_session(self, session_id: str, messages: list[dict[str, str]]) -> None:
         if not await self._connect():
             raise RuntimeError("Redis not connected")
         data = json.dumps(messages, ensure_ascii=False)
@@ -183,7 +183,7 @@ class RedisSessionStore(SessionStore):
         pipe.expire(self._index_key(), self._ttl * 2)  # index 活久一点
         await pipe.execute()
 
-    async def load_session(self, session_id: str) -> List[Dict[str, str]]:
+    async def load_session(self, session_id: str) -> list[dict[str, str]]:
         if not await self._connect():
             raise RuntimeError("Redis not connected")
         data = await self._redis.get(self._msg_key(session_id))
@@ -205,7 +205,7 @@ class RedisSessionStore(SessionStore):
         result = await pipe.execute()
         return result[0] > 0
 
-    async def list_sessions(self) -> List[str]:
+    async def list_sessions(self) -> list[str]:
         if not await self._connect():
             raise RuntimeError("Redis not connected")
         members = await self._redis.smembers(self._index_key())
@@ -253,7 +253,7 @@ class RedisSessionStore(SessionStore):
 
 
 def create_session_store(
-    redis_url: Optional[str] = None,
+    redis_url: (str | None) = None,
     key_prefix: str = "echoseve:session:",
     session_ttl: int = 1800,
     max_sessions: int = 1000,

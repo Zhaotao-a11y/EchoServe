@@ -10,10 +10,10 @@ EchoServe P1 — Cross-Encoder 重排序器
 from __future__ import annotations
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any
 import asyncio
 
-logger = logging.getLogger("echoseve.retriever.reranker")
+logger = logging.getLogger("echoserve.retriever.reranker")
 
 
 class CrossEncoderReranker:
@@ -42,7 +42,7 @@ class CrossEncoderReranker:
 
     def __init__(
         self,
-        model_name: Optional[str] = None,
+        model_name: (str | None) = None,
         device: str = "cpu",  # 重排序用 CPU 即可，不占 GPU
         max_length: int = 512,
         score_threshold: float = 0.0,
@@ -118,9 +118,9 @@ class CrossEncoderReranker:
     def rerank(
         self,
         query: str,
-        candidates: List[Dict[str, Any]],
+        candidates: list[dict[str, Any]],
         top_k: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         对候选文档进行重排序。
 
@@ -181,9 +181,9 @@ class CrossEncoderReranker:
     async def rerank_async(
         self,
         query: str,
-        candidates: List[Dict[str, Any]],
+        candidates: list[dict[str, Any]],
         top_k: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         异步重排序（将 CPU 密集型推理放到线程池）。
         """
@@ -196,10 +196,10 @@ class CrossEncoderReranker:
 
     def rerank_batch(
         self,
-        queries: List[str],
-        candidate_lists: List[List[Dict[str, Any]]],
+        queries: list[str],
+        candidate_lists: list[list[dict[str, Any]]],
         top_k: int = 5,
-    ) -> List[List[Dict[str, Any]]]:
+    ) -> list[list[dict[str, Any]]]:
         """
         批量重排序（多个查询）。
 

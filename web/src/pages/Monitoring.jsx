@@ -1,12 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { apiCall } from '../store'
+import { MetricCard } from '../components/ui'
 
-const API = ''
+// M-16: 颜色名 → CSS 类名映射（Monitoring 专用）
+const cardColorMap = {
+  green: { bg: 'border-green-200 bg-green-50', text: 'text-green-700' },
+  yellow: { bg: 'border-yellow-200 bg-yellow-50', text: 'text-yellow-700' },
+  red: { bg: 'border-red-200 bg-red-50', text: 'text-red-700' },
+  blue: { bg: 'border-blue-200 bg-blue-50', text: 'text-blue-700' },
+  purple: { bg: 'border-purple-200 bg-purple-50', text: 'text-purple-700' },
+}
+const cc = (name) => cardColorMap[name] || { bg: 'border-gray-200 bg-white', text: 'text-gray-800' }
 
-// 简易数字格式化
+// M-14: 简易数字格式化 — NaN 时返回 '-' 而非原始值
 const fmt = (val, digits = 1) => {
   if (val === undefined || val === null) return '-'
   const n = Number(val)
-  if (isNaN(n)) return val
+  if (isNaN(n)) return '-'
   return n.toFixed(digits)
 }
 
@@ -17,28 +27,23 @@ const pct = (val) => {
 }
 
 export default function MonitoringPage() {
-  const token = localStorage.getItem('token') || ''
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [lastUpdate, setLastUpdate] = useState('')
 
+  // M-12: 使用 apiCall 替代直接 fetch + localStorage
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/monitoring/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        const d = await res.json()
-        setData(d)
-        setLastUpdate(new Date().toLocaleTimeString())
-      }
+      const d = await apiCall('/monitoring/dashboard')
+      setData(d)
+      setLastUpdate(new Date().toLocaleTimeString())
     } catch (e) {
-      // ignore
+      // ignore — 401 已由 apiCall 内部处理
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -97,58 +102,28 @@ export default function MonitoringPage() {
 
       {/* 系统指标卡片 */}
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <MetricCard
-          title="GPU 利用率"
-          value={pct(sys.gpu_utilization)}
-          color={Number(sys.gpu_utilization) > 80 ? 'red' : Number(sys.gpu_utilization) > 50 ? 'yellow' : 'green'}
-          icon="🎮"
-        />
-        <MetricCard
-          title="GPU 显存"
-          value={`${fmt(sys.gpu_memory_used_mb, 0)} / ${fmt(sys.gpu_memory_total_mb, 0)} MB`}
-          color={Number(sys.gpu_memory_used_mb) / Number(sys.gpu_memory_total_mb || 1) > 0.9 ? 'red' : 'blue'}
-          icon="💾"
-        />
-        <MetricCard
-          title="系统内存"
-          value={pct(sys.memory_percent)}
-          color={Number(sys.memory_percent) > 80 ? 'red' : 'green'}
-          icon="🧠"
-        />
-        <MetricCard
-          title="CPU 使用率"
-          value={pct(sys.cpu_percent)}
-          color={Number(sys.cpu_percent) > 80 ? 'red' : 'green'}
-          icon="⚡"
-        />
+        {(() => { const c = cc(Number(sys.gpu_utilization) > 80 ? 'red' : Number(sys.gpu_utilization) > 50 ? 'yellow' : 'green'); return (
+        <MetricCard title="GPU 利用率" value={pct(sys.gpu_utilization)} icon="🎮" bgClass={c.bg} color={c.text} />
+        ) })()}
+        {(() => { const c = cc(Number(sys.gpu_memory_used_mb) / Number(sys.gpu_memory_total_mb || 1) > 0.9 ? 'red' : 'blue'); return (
+        <MetricCard title="GPU 显存" value={`${fmt(sys.gpu_memory_used_mb, 0)} / ${fmt(sys.gpu_memory_total_mb, 0)} MB`} icon="💾" bgClass={c.bg} color={c.text} />
+        ) })()}
+        {(() => { const c = cc(Number(sys.memory_percent) > 80 ? 'red' : 'green'); return (
+        <MetricCard title="系统内存" value={pct(sys.memory_percent)} icon="🧠" bgClass={c.bg} color={c.text} />
+        ) })()}
+        {(() => { const c = cc(Number(sys.cpu_percent) > 80 ? 'red' : 'green'); return (
+        <MetricCard title="CPU 使用率" value={pct(sys.cpu_percent)} icon="⚡" bgClass={c.bg} color={c.text} />
+        ) })()}
       </div>
 
       {/* 业务指标卡片 */}
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <MetricCard
-          title="活跃会话"
-          value={biz.active_sessions || 0}
-          color="blue"
-          icon="💬"
-        />
-        <MetricCard
-          title="知识库文档"
-          value={biz.total_documents || 0}
-          color="purple"
-          icon="📚"
-        />
-        <MetricCard
-          title="知识库分片"
-          value={biz.total_chunks || 0}
-          color="purple"
-          icon="📄"
-        />
-        <MetricCard
-          title="Prefix Cache 命中率"
-          value={pct(biz.prefix_cache_hit_rate)}
-          color={Number(biz.prefix_cache_hit_rate) > 80 ? 'green' : 'yellow'}
-          icon="⚡"
-        />
+        <MetricCard title="活跃会话" value={biz.active_sessions || 0} icon="💬" bgClass={cc('blue').bg} color={cc('blue').text} />
+        <MetricCard title="知识库文档" value={biz.total_documents || 0} icon="📚" bgClass={cc('purple').bg} color={cc('purple').text} />
+        <MetricCard title="知识库分片" value={biz.total_chunks || 0} icon="📄" bgClass={cc('purple').bg} color={cc('purple').text} />
+        {(() => { const c = cc(Number(biz.prefix_cache_hit_rate) > 80 ? 'green' : 'yellow'); return (
+        <MetricCard title="Prefix Cache 命中率" value={pct(biz.prefix_cache_hit_rate)} icon="⚡" bgClass={c.bg} color={c.text} />
+        ) })()}
       </div>
 
       {/* 训练状态 + 插件状态 */}
@@ -227,31 +202,4 @@ export default function MonitoringPage() {
   )
 }
 
-// ─── 指标卡片组件 ────────────────────────────────
-function MetricCard({ title, value, color, icon }) {
-  const colorMap = {
-    green: 'border-green-200 bg-green-50',
-    yellow: 'border-yellow-200 bg-yellow-50',
-    red: 'border-red-200 bg-red-50',
-    blue: 'border-blue-200 bg-blue-50',
-    purple: 'border-purple-200 bg-purple-50',
-  }
-  const textMap = {
-    green: 'text-green-700',
-    yellow: 'text-yellow-700',
-    red: 'text-red-700',
-    blue: 'text-blue-700',
-    purple: 'text-purple-700',
-  }
-  return (
-    <div class={`border rounded-lg p-4 ${colorMap[color] || 'border-slate-200 bg-white'}`}>
-      <div class="flex items-center gap-2">
-        <span class="text-lg">{icon}</span>
-        <span class="text-xs text-slate-500">{title}</span>
-      </div>
-      <div class={`text-xl font-bold mt-2 ${textMap[color] || 'text-slate-800'}`}>
-        {value}
-      </div>
-    </div>
-  )
-}
+

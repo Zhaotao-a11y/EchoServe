@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { useStore } from '../store'
+import { useStore, apiCallStream } from '../store'
 
 function ChatPage() {
   const sendMessage = useStore(s => s.sendMessage)
@@ -8,7 +8,7 @@ function ChatPage() {
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [useRag, setUseRag] = useState(false)
+  const [useRag, setUseRag] = useState(true)
   const [sessionId] = useState(() => crypto.randomUUID())
   const messagesEnd = useRef(null)
 
@@ -28,13 +28,9 @@ function ChatPage() {
     setMessages(prev => [...prev, { role: 'assistant', content: '', loading: true }])
 
     try {
-      const token = localStorage.getItem('token')
-      const resp = await fetch('/api/chat/stream', {
+      // M-12: 使用 apiCallStream 替代直接 fetch + localStorage
+      const resp = await apiCallStream('/chat/stream', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({
           session_id: sessionId,
           message: userMsg,

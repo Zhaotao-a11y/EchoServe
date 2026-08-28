@@ -23,7 +23,7 @@ import time
 import argparse
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -78,7 +78,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_jsonl(path: str, max_samples: Optional[int] = None) -> List[Dict]:
+def load_jsonl(path: str, max_samples: (int | None) = None) -> list[Dict]:
     """Load Alpaca-format JSONL"""
     data = []
     with open(path, "r", encoding="utf-8") as f:
@@ -105,7 +105,7 @@ def format_alpaca_prompt(instruction: str, input_text: str, output: str) -> str:
     return full
 
 
-def prepare_dataset(data: List[Dict], tokenizer, max_length: int = 1024):
+def prepare_dataset(data: list[Dict], tokenizer, max_length: int = 1024):
     """Prepare dataset for training"""
     from datasets import Dataset
 

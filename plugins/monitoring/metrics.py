@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import time
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
 from collections import defaultdict
 
-logger = logging.getLogger("echoseve.monitoring.metrics")
+logger = logging.getLogger("echoserve.monitoring.metrics")
 
 
 class MetricsCollector:
@@ -62,13 +62,13 @@ class MetricsCollector:
         self._start_time = time.time()
 
         # Counters: {name: {label_tuple: value}}
-        self._counters: Dict[str, Dict[tuple, float]] = defaultdict(dict)
+        self._counters: dict[str, dict[tuple, float]] = defaultdict(dict)
 
         # Gauges: {name: {label_tuple: value}}
-        self._gauges: Dict[str, Dict[tuple, float]] = defaultdict(dict)
+        self._gauges: dict[str, dict[tuple, float]] = defaultdict(dict)
 
         # Histograms: {name: {buckets: [...], sum: ..., count: ..., labels: ...}}
-        self._histograms: Dict[str, Dict] = {}
+        self._histograms: dict[str, Dict] = {}
 
         # 内置指标初始化
         self._init_builtin_gauges()
@@ -91,7 +91,7 @@ class MetricsCollector:
 
     # ─── Counter API ─────────────────────────────────
 
-    def inc_counter(self, name: str, labels: Optional[Dict[str, str]] = None, value: float = 1):
+    def inc_counter(self, name: str, labels: (dict[str, str] | None) = None, value: float = 1):
         """增加 Counter 值"""
         label_key = self._label_key(labels or {})
         full_name = f"{self.namespace}_{name}_total"
@@ -114,7 +114,7 @@ class MetricsCollector:
 
     # ─── Gauge API ──────────────────────────────────
 
-    def set_gauge(self, name: str, value: float, labels: Optional[Dict[str, str]] = None):
+    def set_gauge(self, name: str, value: float, labels: (dict[str, str] | None) = None):
         """设置 Gauge 值"""
         label_key = self._label_key(labels or {})
         full_name = f"{self.namespace}_{name}"
@@ -150,7 +150,7 @@ class MetricsCollector:
         value = status_map.get(status, 0)
         self.set_gauge("plugin_status", value, {"plugin_id": plugin_id, "status": status})
 
-    def update_training(self, status: str, loss: Optional[float] = None, phase: str = "train"):
+    def update_training(self, status: str, loss: (float | None) = None, phase: str = "train"):
         """更新训练状态"""
         status_map = {"idle": 0, "running": 1, "completed": 2, "failed": 3}
         self.set_gauge("training_status", status_map.get(status, 0))
@@ -168,7 +168,7 @@ class MetricsCollector:
         """记录推理延迟"""
         self._record_histogram("model_inference_duration_ms", duration_ms)
 
-    def _record_histogram(self, name: str, value: float, labels: Optional[Dict[str, str]] = None):
+    def _record_histogram(self, name: str, value: float, labels: (dict[str, str] | None) = None):
         """内部：记录直方图数据"""
         full_name = f"{self.namespace}_{name}"
         label_key = self._label_key(labels or {})
@@ -276,7 +276,7 @@ class MetricsCollector:
 
     # ─── 工具方法 ──────────────────────────────────
 
-    def _label_key(self, labels: Dict[str, str]) -> tuple:
+    def _label_key(self, labels: dict[str, str]) -> tuple:
         """将 labels 字典转为可哈希的排序元组"""
         return tuple(sorted(labels.items()))
 
@@ -287,7 +287,7 @@ class MetricsCollector:
         parts = [f'{k}="{v}"' for k, v in label_tuple]
         return "{" + ",".join(parts) + "}"
 
-    def _label_pairs(self, labels: Dict[str, str]) -> str:
+    def _label_pairs(self, labels: dict[str, str]) -> str:
         """格式化标签对（用于 histogram）"""
         if not labels:
             return "{"
@@ -353,7 +353,7 @@ class MetricsCollector:
 
     # ─── 快照 ──────────────────────────────────────
 
-    def snapshot(self) -> Dict[str, Any]:
+    def snapshot(self) -> dict[str, Any]:
         """获取当前指标快照（JSON 格式，供 API 返回）"""
         return {
             "uptime_seconds": round(time.time() - self._start_time, 1),

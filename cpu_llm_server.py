@@ -11,7 +11,7 @@ import sys
 import json
 import logging
 import argparse
-from typing import List, Dict, Any, Optional, AsyncIterator
+from typing import Any, AsyncIterator
 from pathlib import Path
 
 # Setup logging
@@ -58,7 +58,7 @@ class CPULLMServer:
         self.device = device
         self.model = None
         self.tokenizer = None
-        self.app = FastAPI(title="EchoServe CPU LLM Server", version="0.1.0")
+        self.app = FastAPI(title="EchoServe CPU LLM Server", version="0.2.0")
         self._setup_routes()
 
     def load_model(self) -> None:
@@ -119,7 +119,7 @@ class CPULLMServer:
             }
 
         @self.app.post("/v1/chat/completions")
-        async def chat_completion(request_data: Dict[str, Any]):
+        async def chat_completion(request_data: dict[str, Any]):
             """Chat completion endpoint (OpenAI compatible)."""
             if self.model is None or self.tokenizer is None:
                 raise HTTPException(status_code=503, detail="Model not loaded")
@@ -170,7 +170,7 @@ class CPULLMServer:
                     },
                 }
 
-    def _build_prompt(self, messages: List[Dict[str, str]]) -> str:
+    def _build_prompt(self, messages: list[dict[str, str]]) -> str:
         """Build prompt from message list."""
         # For Qwen models, use the chat template
         if hasattr(self.tokenizer, "apply_chat_template"):
@@ -203,7 +203,7 @@ class CPULLMServer:
         temperature: float,
         max_tokens: int,
         top_p: float,
-        stop: Optional[List[str]],
+        stop: (list[str] | None),
     ) -> str:
         """Generate text synchronously."""
         inputs = self.tokenizer(prompt, return_tensors="pt", padding=True)
@@ -241,7 +241,7 @@ class CPULLMServer:
         temperature: float,
         max_tokens: int,
         top_p: float,
-        stop: Optional[List[str]],
+        stop: (list[str] | None),
     ) -> AsyncIterator[str]:
         """Generate text streamingly."""
         # For simplicity, generate full text then stream it word by word

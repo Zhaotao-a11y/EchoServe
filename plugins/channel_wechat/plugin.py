@@ -38,13 +38,13 @@ import time
 import hashlib
 import logging
 import asyncio
-from typing import Optional, Dict, Any
+from typing import Any
 from datetime import datetime, timezone
 
 from core.plugin import BaizePlugin
 from core.fiber import Fiber
 
-logger = logging.getLogger("echoseve.channel.wechat")
+logger = logging.getLogger("echoserve.channel.wechat")
 
 
 class UnifiedMessage:
@@ -61,8 +61,8 @@ class UnifiedMessage:
         channel: str,
         content: str,
         raw_content: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-        session_id: Optional[str] = None,
+        metadata: (dict[str, Any] | None) = None,
+        session_id: (str | None) = None,
     ):
         self.user_id = user_id
         self.channel = channel
@@ -72,7 +72,7 @@ class UnifiedMessage:
         self.session_id = session_id or f"{channel}:{user_id}:{int(time.time())}"
         self.timestamp = datetime.now(timezone.utc)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "user_id": self.user_id,
             "channel": self.channel,
@@ -98,9 +98,9 @@ class WeChatChannelPlugin(BaizePlugin):
         self._secret: str = ""
         self._token: str = ""
         self._aes_key: str = ""
-        self._access_token: Optional[str] = None
+        self._access_token: (str | None) = None
         self._token_expire_at: float = 0
-        self._user_mapping: Dict[str, str] = {}  # wechat_userid -> internal_user_id
+        self._user_mapping: dict[str, str] = {}  # wechat_userid -> internal_user_id
         self._webhook_path: str = "/webhook/wechat"
 
     # ─── 生命周期 ──────────────────────────────────────
@@ -306,7 +306,7 @@ class WeChatChannelPlugin(BaizePlugin):
         except Exception as e:
             logger.error(f"[{self.plugin_id}] Send error: {e}")
 
-    async def _get_access_token(self) -> Optional[str]:
+    async def _get_access_token(self) -> (str | None):
         """获取企业微信 access_token（带缓存）"""
         now = time.time()
 
@@ -369,13 +369,13 @@ class WeChatChannelPlugin(BaizePlugin):
             f"{wechat_userid} -> {internal_user_id}"
         )
 
-    def get_internal_user(self, wechat_userid: str) -> Optional[str]:
+    def get_internal_user(self, wechat_userid: str) -> (str | None):
         """获取映射的内部用户 ID"""
         return self._user_mapping.get(wechat_userid)
 
     # ─── 状态查询 ──────────────────────────────────────
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """返回渠道状态"""
         return {
             "plugin_id": self.plugin_id,

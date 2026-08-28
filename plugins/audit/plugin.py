@@ -10,20 +10,21 @@ EchoServe V0.1.0 — 审计日志插件
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import hashlib
 import csv
 import io
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
 from datetime import datetime, timezone
 
 from core.plugin import BaizePlugin
 from core.context import BaizeContext
 from core.fiber import Fiber
 
-logger = logging.getLogger("echoseve.audit")
+logger = logging.getLogger("echoserve.audit")
 
 
 class AuditPlugin(BaizePlugin):
@@ -35,8 +36,8 @@ class AuditPlugin(BaizePlugin):
     dependencies = []
 
     def __init__(self):
-        self._log_path: Optional[Path] = None
-        self._chain_path: Optional[Path] = None
+        self._log_path: Path | None = None
+        self._chain_path: Path | None = None
         self._last_hash: str = "0000000000000000000000000000000000000000000000000000000000000000"
         self._log_count: int = 0
         self._retention_days: int = 90
@@ -71,10 +72,10 @@ class AuditPlugin(BaizePlugin):
         user_id: str = "system",
         query: str = "",
         response_summary: str = "",
-        sources: Optional[List[str]] = None,
+        sources: list[str] | None = None,
         latency_ms: int = 0,
         channel: str = "web",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         写入一条审计日志，返回日志ID。
@@ -130,32 +131,38 @@ class AuditPlugin(BaizePlugin):
         user_id: str = "system",
         query: str = "",
         response_summary: str = "",
-        sources: Optional[List[str]] = None,
+        sources: list[str] | None = None,
         latency_ms: int = 0,
         channel: str = "web",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
-        """同步版本（供非 async 代码调用）"""
-        import asyncio
+        """同步版本（供非 async 代码调用）。
+
+        使用 asyncio.get_running_loop() 检测是否在 async 上下文中：
+        - 在 async 上下文 → 直接同步写（避免嵌套事件循环）
+        - 不在 async 上下文 → asyncio.run() 走 async 路径
+        - asyncio.run() 也失败 → 降级同步写
+        """
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # 如果已有事件循环在跑，用同步方式写
-                return self._write_log_entry(
-                    action, user_id, query, response_summary,
-                    sources, latency_ms, channel, metadata
-                )
-            else:
-                return loop.run_until_complete(self.log(
-                    action, user_id, query, response_summary,
-                    sources, latency_ms, channel, metadata
-                ))
-        except RuntimeError:
-            # 没有事件循环，直接同步写
+            asyncio.get_running_loop()
+            # 在 async 上下文中，不能 run_until_complete，直接同步写
             return self._write_log_entry(
                 action, user_id, query, response_summary,
                 sources, latency_ms, channel, metadata
             )
+        except RuntimeError:
+            # 没有运行中的事件循环，可以安全地用 asyncio.run()
+            try:
+                return asyncio.run(self.log(
+                    action, user_id, query, response_summary,
+                    sources, latency_ms, channel, metadata
+                ))
+            except Exception:
+                # asyncio.run() 也失败，降级为同步写
+                return self._write_log_entry(
+                    action, user_id, query, response_summary,
+                    sources, latency_ms, channel, metadata
+                )
 
     def _write_log_entry(
         self,
@@ -163,10 +170,10 @@ class AuditPlugin(BaizePlugin):
         user_id: str,
         query: str,
         response_summary: str,
-        sources: Optional[List[str]],
+        sources: list[str] | None,
         latency_ms: int,
         channel: str,
-        metadata: Optional[Dict[str, Any]],
+        metadata: dict[str, Any] | None,
     ) -> str:
         """内部同步写入"""
         now = datetime.now(timezone.utc)
@@ -198,14 +205,14 @@ class AuditPlugin(BaizePlugin):
 
     def query(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        user_id: Optional[str] = None,
-        keyword: Optional[str] = None,
-        action: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        user_id: str | None = None,
+        keyword: str | None = None,
+        action: str | None = None,
         offset: int = 0,
         limit: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """查询审计日志"""
         if not self._log_path or not self._log_path.exists():
             return {"total": 0, "logs": []}
@@ -249,9 +256,9 @@ class AuditPlugin(BaizePlugin):
 
     def export_csv(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        user_id: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        user_id: str | None = None,
     ) -> str:
         """导出审计日志为 CSV 字符串"""
         query_result = self.query(
@@ -286,10 +293,10 @@ class AuditPlugin(BaizePlugin):
 
     async def export_csv_file(
         self,
-        output_path: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        user_id: Optional[str] = None,
+        output_path: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        user_id: str | None = None,
     ) -> str:
         """导出 CSV 到文件，返回文件路径"""
         csv_content = self.export_csv(start_date, end_date, user_id)
@@ -308,7 +315,7 @@ class AuditPlugin(BaizePlugin):
 
     # ─── 完整性校验 ────────────────────────────────────────
 
-    def verify_integrity(self) -> Dict[str, Any]:
+    def verify_integrity(self) -> dict[str, Any]:
         """
         验证整条哈希链是否完整。
         如果任何一条日志被篡改，哈希链会断裂。

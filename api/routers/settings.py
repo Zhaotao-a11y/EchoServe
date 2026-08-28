@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from api.deps import verify_token, require_permission
 from config.settings import settings
 
-logger = logging.getLogger("echoseve.api.settings")
+logger = logging.getLogger("echoserve.api.settings")
 
 router = APIRouter()
 
@@ -45,7 +45,7 @@ def _get_env_path() -> Path:
     return Path.cwd() / ".env"
 
 
-def _read_env_file() -> Dict[str, str]:
+def _read_env_file() -> dict[str, str]:
     """读取 .env 文件为字典"""
     env_path = _get_env_path()
     config = {}
@@ -65,7 +65,7 @@ def _read_env_file() -> Dict[str, str]:
     return config
 
 
-def _write_env_file(config: Dict[str, str]) -> bool:
+def _write_env_file(config: dict[str, str]) -> bool:
     """将字典写回 .env 文件，保留注释"""
     env_path = _get_env_path()
     try:
@@ -104,7 +104,7 @@ def _write_env_file(config: Dict[str, str]) -> bool:
         return False
 
 
-def _get_wechat_config() -> Dict[str, str]:
+def _get_wechat_config() -> dict[str, str]:
     """从环境变量和 .env 读取微信客服配置"""
     return {
         "url": os.getenv("WECHAT_KF_WEBHOOK_PATH", ""),
@@ -133,7 +133,7 @@ def _build_webhook_url(webhook_path: str) -> str:
 @router.get("/settings/wechat-kf")
 async def get_wechat_kf_config(
     _: str = Depends(verify_token),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     读取当前企业微信客服配置。
     任何已登录用户可读取。
@@ -154,7 +154,7 @@ async def get_wechat_kf_config(
 async def save_wechat_kf_config(
     request: WechatKFConfig,
     user_id: str = Depends(require_permission("system.write")),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     保存企业微信客服配置到 .env 文件。
     需要 system.write 权限（admin / super_admin）。
@@ -203,7 +203,7 @@ async def save_wechat_kf_config(
 @router.get("/settings/system")
 async def get_system_info(
     _: str = Depends(verify_token),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     读取系统运行状态与当前模型信息。
     """
@@ -236,7 +236,7 @@ async def get_system_info(
         pass
 
     # --- 版本号 ---
-    version = "0.1.2"
+    version = "0.2.0"
     build = "P2"
 
     return {

@@ -18,9 +18,7 @@ from pathlib import Path
 
 import pytest
 
-# 确保项目根目录在 sys.path 中
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
+# sys.path 由根目录 conftest.py 统一管理，此处不再重复设置
 
 
 @pytest.mark.asyncio

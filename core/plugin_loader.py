@@ -17,13 +17,13 @@ import inspect
 import logging
 import pkgutil
 from pathlib import Path
-from typing import List, Type
+from typing import Type
 
 from .context import BaizeContext
 from .fiber import FiberManager
 from .plugin import BaizePlugin
 
-logger = logging.getLogger("echoseve.loader")
+logger = logging.getLogger("echoserve.loader")
 
 
 class PluginLoader:
@@ -32,7 +32,7 @@ class PluginLoader:
     def __init__(self, ctx: BaizeContext, fiber_manager: FiberManager):
         self.ctx = ctx
         self.fiber_manager = fiber_manager
-        self._plugin_classes: List[Type[BaizePlugin]] = []
+        self._plugin_classes: list[Type[BaizePlugin]] = []
 
     def register(self, plugin_cls: Type[BaizePlugin]):
         """手动注册一个插件类
@@ -105,6 +105,6 @@ class PluginLoader:
 
         logger.info(f"[Loader] Total plugins loaded: {len(self._plugin_classes)}")
 
-    def get_plugin_ids(self) -> List[str]:
+    def get_plugin_ids(self) -> list[str]:
         """返回所有已注册插件的 ID"""
         return [cls.plugin_id for cls in self._plugin_classes]

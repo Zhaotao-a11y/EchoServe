@@ -4,7 +4,7 @@ EchoServe V0.1.0 — 客服场景系统提示词模板
 """
 from __future__ import annotations
 
-from typing import Optional, List, Dict, Any
+from typing import Any
 
 
 # ─── 基础客服系统提示词 ──────────────────────────────────
@@ -101,7 +101,7 @@ ESCALATION_PROMPT = """用户请求已超出自动处理范围，或置信度低
 
 
 def build_system_prompt(
-    retrieved_docs: Optional[List[Dict[str, Any]]] = None,
+    retrieved_docs: (list[dict[str, Any]] | None) = None,
     thinking_mode: bool = False,
     fast_mode: bool = False,
     escalation: bool = False,
@@ -153,9 +153,9 @@ QWEN3_NO_THINK_PREFIX = "/no_think\n"
 
 
 def apply_qwen3_thinking(
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     enable: bool = True,
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """
     为 Qwen3-8B-Instruct 添加思考模式控制指令。
 

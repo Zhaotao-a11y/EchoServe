@@ -14,7 +14,7 @@ from fastapi import APIRouter, Response, Depends, HTTPException
 from api.deps import get_context, verify_token
 from core.context import BaizeContext
 
-logger = logging.getLogger("echoseve.api.metrics")
+logger = logging.getLogger("echoserve.api.metrics")
 
 router = APIRouter()
 

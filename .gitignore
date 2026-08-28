@@ -38,6 +38,11 @@ data/chroma_cs/
 data/knowledge/
 data/logs/
 data/auth/
+data/bm25_index.json
+data/evolution.db
+data/evolution.db-shm
+data/evolution.db-wal
+data/evolution_fallback/
 !data/.gitkeep
 
 # 构建产物

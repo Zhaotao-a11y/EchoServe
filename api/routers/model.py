@@ -4,14 +4,13 @@ EchoServe P1 — 模型管理 API 路由
 from __future__ import annotations
 
 import logging
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.deps import get_context, verify_token
 from core.context import BaizeContext
 
-logger = logging.getLogger("echoseve.api.model")
+logger = logging.getLogger("echoserve.api.model")
 
 router = APIRouter()
 
@@ -20,7 +19,7 @@ router = APIRouter()
 
 class SwitchModelRequest(BaseModel):
     model_id: str
-    lora_adapter: Optional[str] = None
+    lora_adapter: (str | None) = None
 
 
 class LoadAdapterRequest(BaseModel):

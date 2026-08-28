@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from api.deps import get_context, verify_token
 from plugins.auth.plugin import AuthPlugin, ROLE_PERMISSIONS
 
-logger = logging.getLogger("echoseve.api.auth")
+logger = logging.getLogger("echoserve.api.auth")
 
 router = APIRouter()
 

@@ -11,14 +11,14 @@ from __future__ import annotations
 
 import uuid
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from api.deps import get_chat_manager, verify_token, rate_limit
 from plugins.chat.plugin import ChatPlugin
 
-logger = logging.getLogger("echoseve.api.chat")
+logger = logging.getLogger("echoserve.api.chat")
 
 router = APIRouter()
 
@@ -27,25 +27,25 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     """对话请求"""
-    session_id: Optional[str] = Field(
+    session_id: (str | None) = Field(
         default=None,
         description="会话 ID，不传则自动创建"
     )
     message: str = Field(..., min_length=1, max_length=4000, description="用户消息")
-    use_rag: bool = Field(default=False, description="是否启用 RAG 检索增强")
+    use_rag: bool = Field(default=True, description="是否启用 RAG 检索增强")
 
 
 class ChatResponse(BaseModel):
     """对话响应"""
     session_id: str
     reply: str
-    retrieved_docs: List[Dict[str, Any]] = []
-    tokens: Dict[str, Any] = {}
+    retrieved_docs: list[dict[str, Any]] = []
+    tokens: dict[str, Any] = {}
 
 
 class StreamChatRequest(BaseModel):
     """流式对话请求"""
-    session_id: Optional[str] = None
+    session_id: (str | None) = None
     message: str = Field(..., min_length=1, max_length=4000)
     use_rag: bool = Field(default=True)
 

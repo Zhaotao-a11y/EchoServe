@@ -25,14 +25,14 @@ import time
 import hashlib
 import hmac
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Any
 from datetime import datetime, timezone
 
 from core.plugin import BaizePlugin
 # BaizeContext 延迟导入，避免循环依赖
 from core.fiber import Fiber
 
-logger = logging.getLogger("echoseve.channel.whatsapp")
+logger = logging.getLogger("echoserve.channel.whatsapp")
 
 # 复用企业微信插件的 UnifiedMessage 定义
 from plugins.channel_wechat.plugin import UnifiedMessage
@@ -51,7 +51,7 @@ class WhatsAppChannelPlugin(BaizePlugin):
     META_RATE_WINDOW = 60  # 秒
 
     def __init__(self):
-        self._ctx: Optional[BaizeContext] = None
+        self._ctx: (BaizeContext | None) = None
         self._verify_token: str = ""
         self._app_secret: str = ""
         self._phone_number_id: str = ""
@@ -59,11 +59,11 @@ class WhatsAppChannelPlugin(BaizePlugin):
         self._webhook_path: str = "/webhook/whatsapp"
         self._rate_limit: int = 80
         # 发送计数（滑动窗口）
-        self._send_timestamps: List[float] = []
+        self._send_timestamps: list[float] = []
         # 用户映射：phone_number → internal_user_id
-        self._user_mapping: Dict[str, str] = {}
+        self._user_mapping: dict[str, str] = {}
         # 媒体消息缓存
-        self._media_cache: Dict[str, Dict[str, Any]] = {}
+        self._media_cache: dict[str, dict[str, Any]] = {}
 
     # ─── 生命周期 ──────────────────────────────────────
 
@@ -187,7 +187,7 @@ class WhatsAppChannelPlugin(BaizePlugin):
 
     # ─── 消息处理 ──────────────────────────────────────
 
-    async def _process_message(self, msg: Dict[str, Any], metadata: Dict[str, Any]):
+    async def _process_message(self, msg: dict[str, Any], metadata: dict[str, Any]):
         """处理单条 WhatsApp 消息"""
         phone = msg.get("from", "")
         msg_type = msg.get("type", "text")
@@ -280,7 +280,7 @@ class WhatsAppChannelPlugin(BaizePlugin):
             logger.error(f"[{self.plugin_id}] Chat processing error: {e}")
             await self._send_reply(phone, "抱歉，处理您的消息时出现错误，请稍后再试。")
 
-    def _process_status(self, status: Dict[str, Any]):
+    def _process_status(self, status: dict[str, Any]):
         """处理消息状态更新（delivered/read/sent/failed）"""
         msg_id = status.get("id", "")
         msg_status = status.get("status", "")
@@ -410,7 +410,7 @@ class WhatsAppChannelPlugin(BaizePlugin):
 
     # ─── 状态查询 ──────────────────────────────────────
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """返回渠道状态"""
         return {
             "plugin_id": self.plugin_id,

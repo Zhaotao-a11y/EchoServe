@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react'
-
-const API = ''
+import { apiCall } from '../store'
 
 export default function EvolvePage() {
-  const token = localStorage.getItem('token') || ''
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
   const [training, setTraining] = useState(false)
@@ -15,15 +13,10 @@ export default function EvolvePage() {
   // 加载进化状态
   const loadStatus = async () => {
     try {
-      const res = await fetch(`${API}/api/evolve/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        const d = await res.json()
-        setStatus(d)
-      }
+      const d = await apiCall('/evolve/status')
+      setStatus(d)
     } catch (e) {
-      // ignore
+      // ignore — 401 由 apiCall 内部处理
     } finally {
       setLoading(false)
     }
@@ -32,12 +25,10 @@ export default function EvolvePage() {
   // 检查进化建议
   const loadCheck = async () => {
     try {
-      const res = await fetch(`${API}/api/evolve/check`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) return await res.json()
-    } catch (e) {}
-    return null
+      return await apiCall('/evolve/check')
+    } catch (e) {
+      return null
+    }
   }
 
   // 构建训练数据
@@ -45,12 +36,7 @@ export default function EvolvePage() {
     setMessage('')
     setError('')
     try {
-      const res = await fetch(`${API}/api/evolve/build-data`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.detail || `HTTP ${res.status}`)
+      const d = await apiCall('/evolve/build-data', { method: 'POST' })
       setDataValidation(d.validation)
       setMessage(`✅ 训练数据已构建: ${d.output_path}`)
     } catch (e) {
@@ -64,16 +50,10 @@ export default function EvolvePage() {
     setMessage('')
     setError('')
     try {
-      const res = await fetch(`${API}/api/evolve/trigger/lora`, {
+      const d = await apiCall('/evolve/trigger/lora', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({}),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.detail || `HTTP ${res.status}`)
       setMessage(`✅ LoRA 训练完成! eval_loss=${d.best_eval_loss?.toFixed(4)}`)
       loadStatus()
     } catch (e) {
@@ -88,12 +68,7 @@ export default function EvolvePage() {
     setMessage('')
     setError('')
     try {
-      const res = await fetch(`${API}/api/evolve/evaluate`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.detail || `HTTP ${res.status}`)
+      const d = await apiCall('/evolve/evaluate', { method: 'POST' })
       setReport(d)
       setMessage(`✅ 评估完成: 准确率 ${(d.accuracy * 100).toFixed(1)}%`)
     } catch (e) {
@@ -104,13 +79,8 @@ export default function EvolvePage() {
   // 获取评估报告
   const loadReport = async () => {
     try {
-      const res = await fetch(`${API}/api/evolve/eval-report`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        const d = await res.json()
-        setReport(d)
-      }
+      const d = await apiCall('/evolve/eval-report')
+      setReport(d)
     } catch (e) {}
   }
 

@@ -19,9 +19,9 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
 
-logger = logging.getLogger("echoseve.evolve.trainer")
+logger = logging.getLogger("echoserve.evolve.trainer")
 
 
 class LoRATrainer:
@@ -41,13 +41,13 @@ class LoRATrainer:
         self,
         base_model: str = "./models/qwen3-14b-q4",
         train_data: str = "./data/training/train.jsonl",
-        val_data: Optional[str] = None,
+        val_data: (str | None) = None,
         output_dir: str = "./models/adapters/latest",
         # LoRA 参数
         lora_r: int = 8,
         lora_alpha: int = 16,
         lora_dropout: float = 0.05,
-        target_modules: Optional[List[str]] = None,
+        target_modules: (list[str] | None) = None,
         # 训练参数
         num_epochs: int = 3,
         batch_size: int = 2,
@@ -87,12 +87,12 @@ class LoRATrainer:
         self.seed = seed
 
         # 训练状态
-        self.training_history: List[Dict[str, float]] = []
+        self.training_history: list[dict[str, float]] = []
         self.best_eval_loss: float = float("inf")
 
     # ─── 主入口 ────────────────────────────────────────
 
-    def train(self) -> Dict[str, Any]:
+    def train(self) -> dict[str, Any]:
         """
         执行完整训练流程。
 
@@ -427,7 +427,7 @@ class LoRATrainer:
 
     # ─── 辅助方法 ────────────────────────────────────────
 
-    def _result(self, status: str, reason: str, start_time: float) -> Dict[str, Any]:
+    def _result(self, status: str, reason: str, start_time: float) -> dict[str, Any]:
         """构造结果字典"""
         return {
             "status": status,
@@ -435,7 +435,7 @@ class LoRATrainer:
             "training_time_minutes": round((time.time() - start_time) / 60, 1),
         }
 
-    def get_adapter_info(self) -> Optional[Dict[str, Any]]:
+    def get_adapter_info(self) -> (dict[str, Any] | None):
         """读取已保存的 adapter 信息"""
         adapter_path = self.output_dir / "adapter_config.json"
         if not adapter_path.exists():

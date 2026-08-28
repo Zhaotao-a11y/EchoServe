@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import asyncio
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from core.plugin import BaizePlugin
 from core.context import BaizeContext
@@ -20,7 +20,7 @@ from .vector import VectorRetriever
 from .rrf import rrf_fuse
 from .reranker import CrossEncoderReranker, RerankerFactory
 
-logger = logging.getLogger("echoseve.retriever")
+logger = logging.getLogger("echoserve.retriever")
 
 
 class RetrieverPlugin(BaizePlugin):
@@ -32,9 +32,9 @@ class RetrieverPlugin(BaizePlugin):
     dependencies = []  # 无依赖，基础插件
 
     def __init__(self):
-        self.bm25: Optional[BM25Retriever] = None
-        self.vector: Optional[VectorRetriever] = None
-        self.reranker: Optional[CrossEncoderReranker] = None
+        self.bm25: (BM25Retriever | None) = None
+        self.vector: (VectorRetriever | None) = None
+        self.reranker: (CrossEncoderReranker | None) = None
         self.top_k: int = 10
         self.rrf_k: int = 60
         self.bm25_weight: float = 0.4
@@ -87,6 +87,10 @@ class RetrieverPlugin(BaizePlugin):
         else:
             logger.info(f"[{self.plugin_id}] Reranker 不可用，使用 RRF 排序")
 
+        # 注册到 Context，供 KnowledgePlugin / ChatPlugin 注入使用
+        self.provide("retriever", self)
+        logger.info(f"[{self.plugin_id}] Registered as 'retriever' in context")
+
     async def on_destroy(self, ctx: BaizeContext, fiber: Fiber):
         """释放资源"""
         if self.vector:
@@ -98,9 +102,9 @@ class RetrieverPlugin(BaizePlugin):
     async def retrieve(
         self,
         query: str,
-        top_k: Optional[int] = None,
-        use_rerank: Optional[bool] = None,
-    ) -> List[Dict[str, Any]]:
+        top_k: (int | None) = None,
+        use_rerank: (bool | None) = None,
+    ) -> list[dict[str, Any]]:
         """
         执行混合检索 + 可选重排序。
 
@@ -157,7 +161,7 @@ class RetrieverPlugin(BaizePlugin):
 
         return results
 
-    def add_documents(self, documents: List[Dict[str, Any]]):
+    def add_documents(self, documents: list[dict[str, Any]]):
         """批量添加文档到索引"""
         self.bm25.add_documents(documents)
 

@@ -16,13 +16,12 @@ from __future__ import annotations
 
 import uuid
 import time
-import json
 import os
 import asyncio
 import secrets
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -38,7 +37,7 @@ from .user_store import (
     create_user_store,
 )
 
-logger = logging.getLogger("echoseve.auth")
+logger = logging.getLogger("echoserve.auth")
 
 # ─── 角色权限定义 ────────────────────────────────────────────
 
@@ -86,14 +85,14 @@ class AuthPlugin(BaizePlugin):
     dependencies = []
 
     def __init__(self):
-        self._users: Dict[str, Dict[str, Any]] = {}
-        self._api_keys: Dict[str, Dict[str, Any]] = {}
-        self._login_attempts: Dict[str, List[float]] = {}
-        self._storage_path: Optional[Path] = None
-        self._api_key_path: Optional[Path] = None
-        self._jwt_secret: str = "change-me"
+        self._users: dict[str, dict[str, Any]] = {}
+        self._api_keys: dict[str, dict[str, Any]] = {}
+        self._login_attempts: dict[str, list[float]] = {}
+        self._storage_path: Path | None = None
+        self._api_key_path: Path | None = None
+        self._jwt_secret: str | None = None
         self._token_expire_minutes: int = 480
-        self._store: Optional[UserStore] = None
+        self._store: UserStore | None = None
         self._lock: asyncio.Lock = asyncio.Lock()
 
     # ─── 生命周期 ──────────────────────────────────────────────
@@ -214,7 +213,7 @@ class AuthPlugin(BaizePlugin):
         password: str,
         role: str = "user",
         department: str = "default",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """注册新用户"""
         if len(password) < 8:
             raise ValueError("密码长度至少8位")
@@ -250,7 +249,7 @@ class AuthPlugin(BaizePlugin):
         logger.info(f"[{self.plugin_id}] User registered: {username} ({role})")
         return {"user_id": user_id, "username": username, "role": role}
 
-    async def login(self, username: str, password: str) -> Dict[str, Any]:
+    async def login(self, username: str, password: str) -> dict[str, Any]:
         """用户登录，返回 JWT Token"""
         # 检查登录限流
         if self._is_locked_out(username):
@@ -304,8 +303,10 @@ class AuthPlugin(BaizePlugin):
             "role": user["role"],
         }
 
-    def _issue_jwt(self, user: Dict[str, Any]) -> str:
-        """签发 JWT"""
+    def _issue_jwt(self, user: dict[str, Any]) -> str:
+        """签发 JWT（内部方法）"""
+        if not self._jwt_secret:
+            raise RuntimeError("JWT secret not configured")
         payload = {
             "sub": user["user_id"],
             "username": user["username"],
@@ -315,8 +316,14 @@ class AuthPlugin(BaizePlugin):
         }
         return jwt.encode(payload, self._jwt_secret, algorithm="HS256")
 
-    def verify_token(self, token: str) -> Dict[str, Any]:
+    def issue_token(self, user: dict[str, Any]) -> str:
+        """签发 JWT 的公共接口，供外部模块调用。"""
+        return self._issue_jwt(user)
+
+    def verify_token(self, token: str) -> dict[str, Any]:
         """验证 JWT，返回 payload"""
+        if not self._jwt_secret:
+            raise RuntimeError("JWT secret not configured")
         try:
             payload = jwt.decode(token, self._jwt_secret, algorithms=["HS256"])
             return payload
@@ -362,7 +369,7 @@ class AuthPlugin(BaizePlugin):
 
     async def create_api_key(
         self, user_id: str, name: str = "default"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         为指定用户创建 API Key。
         支持通过 user_id（UUID）或 username 查找。
@@ -409,7 +416,7 @@ class AuthPlugin(BaizePlugin):
                 return True
         return False
 
-    def verify_api_key(self, key: str) -> Optional[Dict[str, Any]]:
+    def verify_api_key(self, key: str) -> dict[str, Any] | None:
         """验证 API Key"""
         for ak in self._api_keys.values():
             if ak["key"] == key and ak.get("enabled", True):
@@ -417,7 +424,7 @@ class AuthPlugin(BaizePlugin):
                 return ak
         return None
 
-    def list_api_keys(self, user_id: str) -> List[Dict[str, Any]]:
+    def list_api_keys(self, user_id: str) -> list[dict[str, Any]]:
         """列出用户的 API Keys"""
         return [
             {
@@ -433,7 +440,7 @@ class AuthPlugin(BaizePlugin):
 
     # ─── 用户管理 ──────────────────────────────────────────────
 
-    def list_users(self) -> List[Dict[str, Any]]:
+    def list_users(self) -> list[dict[str, Any]]:
         """列出所有用户（不含密码哈希）"""
         return [
             {
@@ -471,7 +478,7 @@ class AuthPlugin(BaizePlugin):
                 return True
         return False
 
-    def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
+    def get_user(self, user_id: str) -> dict[str, Any] | None:
         """获取用户信息"""
         u = self._users.get(user_id)
         if not u:
@@ -494,6 +501,35 @@ class AuthPlugin(BaizePlugin):
         role = u["role"]
         perms = ROLE_PERMISSIONS.get(role, {}).get("perms", [])
         return "*" in perms or permission in perms
+
+    # ─── 公共用户操作接口（供 EnterpriseAuthPlugin 等外部调用） ──
+
+    def find_user_by_username(self, username: str) -> dict[str, Any] | None:
+        """按用户名查找用户（返回完整用户字典，含内部字段）。"""
+        for u in self._users.values():
+            if u["username"] == username:
+                return u
+        return None
+
+    async def upsert_user(self, user_data: dict[str, Any]) -> dict[str, Any]:
+        """创建或更新用户。如果 user_id 已存在则更新，否则创建新用户。"""
+        async with self._lock:
+            user_id = user_data.get("user_id")
+            if user_id and user_id in self._users:
+                # 更新现有用户
+                self._users[user_id].update(user_data)
+                return self._users[user_id]
+            else:
+                # 创建新用户
+                if not user_id:
+                    user_id = str(uuid.uuid4())
+                    user_data["user_id"] = user_id
+                self._users[user_id] = user_data
+                return user_data
+
+    async def persist(self) -> None:
+        """持久化用户数据到存储层。"""
+        await self._save_to_store()
 
     # ─── 持久化（V0.1.7: 通过 UserStore 抽象层） ────────────────
 

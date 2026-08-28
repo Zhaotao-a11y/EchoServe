@@ -10,13 +10,12 @@ EchoServe V0.1.0 — 审计日志 API 路由
 from __future__ import annotations
 
 import logging
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.deps import get_context, require_permission
 from plugins.audit.plugin import AuditPlugin
 
-logger = logging.getLogger("echoseve.api.audit")
+logger = logging.getLogger("echoserve.api.audit")
 
 router = APIRouter()
 
@@ -29,11 +28,11 @@ def get_audit_service(ctx=Depends(get_context)) -> AuditPlugin:
 
 @router.get("/audit/logs")
 async def query_logs(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    user_id: Optional[str] = None,
-    keyword: Optional[str] = None,
-    action: Optional[str] = None,
+    start_date: (str | None) = None,
+    end_date: (str | None) = None,
+    user_id: (str | None) = None,
+    keyword: (str | None) = None,
+    action: (str | None) = None,
     offset: int = 0,
     limit: int = 50,
     audit: AuditPlugin = Depends(get_audit_service),
@@ -57,9 +56,9 @@ async def query_logs(
 
 @router.get("/audit/export")
 async def export_csv(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    user_id: Optional[str] = None,
+    start_date: (str | None) = None,
+    end_date: (str | None) = None,
+    user_id: (str | None) = None,
     audit: AuditPlugin = Depends(get_audit_service),
     _: str = Depends(require_permission("audit.read")),
 ):

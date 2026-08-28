@@ -19,20 +19,20 @@ Reciprocal Rank Fusion (RRF) 是一种将多个检索结果列表
 from __future__ import annotations
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any
 from collections import defaultdict
 
-logger = logging.getLogger("echoseve.retriever.rrf")
+logger = logging.getLogger("echoserve.retriever.rrf")
 
 
 def rrf_fuse(
-    bm25_results: List[Dict[str, Any]],
-    vector_results: List[Dict[str, Any]],
+    bm25_results: list[dict[str, Any]],
+    vector_results: list[dict[str, Any]],
     k: int = 60,
     bm25_weight: float = 0.4,
     vector_weight: float = 0.6,
     top_k: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     RRF 融合 BM25 和向量检索结果。
 
@@ -61,8 +61,8 @@ def rrf_fuse(
     vector_weight /= total_weight
 
     # 存储每个文档的融合分数和原始内容
-    scores: Dict[str, float] = defaultdict(float)
-    doc_map: Dict[str, Dict[str, Any]] = {}
+    scores: dict[str, float] = defaultdict(float)
+    doc_map: dict[str, dict[str, Any]] = {}
 
     # 处理 BM25 结果
     for rank, doc in enumerate(bm25_results, start=1):
@@ -100,11 +100,11 @@ def rrf_fuse(
 
 
 def rrf_fuse_multi(
-    result_lists: List[List[Dict[str, Any]]],
-    weights: Optional[List[float]] = None,
+    result_lists: list[list[dict[str, Any]]],
+    weights: (list[float] | None) = None,
     k: int = 60,
     top_k: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     多路 RRF 融合（支持 2 路以上）。
 
@@ -124,8 +124,8 @@ def rrf_fuse_multi(
     total = sum(weights)
     weights = [w / total for w in weights]
 
-    scores: Dict[str, float] = defaultdict(float)
-    doc_map: Dict[str, Dict[str, Any]] = {}
+    scores: dict[str, float] = defaultdict(float)
+    doc_map: dict[str, dict[str, Any]] = {}
 
     for results, weight in zip(result_lists, weights):
         for rank, doc in enumerate(results, start=1):

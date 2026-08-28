@@ -401,8 +401,8 @@ def test_windows_installer_build():
         assert (build_dir / "README-Windows.txt").exists()
         assert (build_dir / "LICENSE.txt").exists()
         # Batch scripts in scripts/ subdirectory
-        assert (build_dir / "scripts" / "start_echoseve.bat").exists()
-        assert (build_dir / "scripts" / "stop_echoseve.bat").exists()
+        assert (build_dir / "scripts" / "start_echoserve.bat").exists()
+        assert (build_dir / "scripts" / "stop_echoserve.bat").exists()
         assert (build_dir / "scripts" / "install_docker.bat").exists()
         assert (build_dir / "scripts" / "check_environment.bat").exists()
         # Docker compose in docker/ subdirectory

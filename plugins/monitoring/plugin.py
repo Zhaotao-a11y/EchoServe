@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import time
 import asyncio
-from typing import Optional, Dict, Any
+from typing import Any
 
 from core.plugin import BaizePlugin
 from core.context import BaizeContext
@@ -23,7 +23,7 @@ from core.fiber import Fiber
 
 from .metrics import MetricsCollector
 
-logger = logging.getLogger("echoseve.monitoring")
+logger = logging.getLogger("echoserve.monitoring")
 
 
 class MonitoringPlugin(BaizePlugin):
@@ -43,9 +43,9 @@ class MonitoringPlugin(BaizePlugin):
     dependencies = ["core.config"]
 
     def __init__(self):
-        self.ctx: Optional[BaizeContext] = None
-        self.collector: Optional[MetricsCollector] = None
-        self._collect_task: Optional[asyncio.Task] = None
+        self.ctx: (BaizeContext | None) = None
+        self.collector: (MetricsCollector | None) = None
+        self._collect_task: (asyncio.Task | None) = None
         self._collect_interval: int = 15  # 每 15 秒采集一次
         self._started_at: float = 0.0
 
@@ -170,7 +170,7 @@ class MonitoringPlugin(BaizePlugin):
             return "# No metrics collector available\n"
         return self.collector.export_prometheus()
 
-    def get_snapshot(self) -> Dict[str, Any]:
+    def get_snapshot(self) -> dict[str, Any]:
         """返回 JSON 格式的当前指标快照"""
         if not self.collector:
             return {"error": "collector not initialized"}
@@ -185,7 +185,7 @@ class MonitoringPlugin(BaizePlugin):
 
         return snap
 
-    def get_dashboard_data(self) -> Dict[str, Any]:
+    def get_dashboard_data(self) -> dict[str, Any]:
         """
         返回管理后台仪表盘所需的数据。
 
@@ -237,7 +237,7 @@ class MonitoringPlugin(BaizePlugin):
             return values[0] if values else 0.0
         return 0.0
 
-    def _get_plugin_statuses(self, gauges: Dict) -> Dict[str, Any]:
+    def _get_plugin_statuses(self, gauges: Dict) -> dict[str, Any]:
         """提取插件状态"""
         statuses = {}
         key = "echoseve_plugin_status"

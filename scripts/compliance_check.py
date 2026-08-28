@@ -16,10 +16,10 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Any
 from datetime import datetime
 
-logger = logging.getLogger("echoseve.compliance")
+logger = logging.getLogger("echoserve.compliance")
 
 
 # ═══════════════════════════════════════════
@@ -306,9 +306,9 @@ class CodeReviewer:
 
     def __init__(self, project_root: str = "."):
         self.project_root = Path(project_root)
-        self.findings: List[Dict[str, Any]] = []
+        self.findings: list[dict[str, Any]] = []
 
-    def check_password_policy(self) -> Dict[str, Any]:
+    def check_password_policy(self) -> dict[str, Any]:
         """检查密码策略实现"""
         auth_file = self.project_root / "plugins/auth/plugin.py"
         if not auth_file.exists():
@@ -330,7 +330,7 @@ class CodeReviewer:
             "passed": f"{passed}/{len(checks)}",
         }
 
-    def check_audit_integrity(self) -> Dict[str, Any]:
+    def check_audit_integrity(self) -> dict[str, Any]:
         """检查审计日志防篡改"""
         audit_file = self.project_root / "plugins/audit/plugin.py"
         if not audit_file.exists():
@@ -351,7 +351,7 @@ class CodeReviewer:
             "passed": f"{passed}/{len(checks)}",
         }
 
-    def check_https_enforcement(self) -> Dict[str, Any]:
+    def check_https_enforcement(self) -> dict[str, Any]:
         """检查 HTTPS 强制"""
         nginx_file = self.project_root / "nginx/nginx.conf"
         if not nginx_file.exists():
@@ -372,7 +372,7 @@ class CodeReviewer:
             "passed": f"{passed}/{len(checks)}",
         }
 
-    def check_acl_implementation(self) -> Dict[str, Any]:
+    def check_acl_implementation(self) -> dict[str, Any]:
         """检查 ACL 实现"""
         knowledge_file = self.project_root / "plugins/knowledge/plugin.py"
         if not knowledge_file.exists():
@@ -393,7 +393,7 @@ class CodeReviewer:
             "passed": f"{passed}/{len(checks)}",
         }
 
-    def check_jwt_security(self) -> Dict[str, Any]:
+    def check_jwt_security(self) -> dict[str, Any]:
         """检查 JWT 安全配置"""
         auth_file = self.project_root / "plugins/auth/plugin.py"
         if not auth_file.exists():
@@ -415,7 +415,7 @@ class CodeReviewer:
             "passed": f"{passed}/{len(checks)}",
         }
 
-    def check_rate_limiting(self) -> Dict[str, Any]:
+    def check_rate_limiting(self) -> dict[str, Any]:
         """检查限流实现"""
         auth_file = self.project_root / "plugins/auth/plugin.py"
         content = ""
@@ -435,7 +435,7 @@ class CodeReviewer:
             "passed": f"{passed}/{len(checks)}",
         }
 
-    def run_all(self) -> Dict[str, Any]:
+    def run_all(self) -> dict[str, Any]:
         """运行全部代码检查"""
         results = {
             "password_policy": self.check_password_policy(),
@@ -455,7 +455,7 @@ class CodeReviewer:
 class SystemChecker:
     """检查运行环境安全配置"""
 
-    def check_docker_security(self) -> Dict[str, Any]:
+    def check_docker_security(self) -> dict[str, Any]:
         """检查 Docker 安全配置"""
         compose_file = Path("docker-compose.yml")
         if not compose_file.exists():
@@ -475,7 +475,7 @@ class SystemChecker:
             "passed": f"{passed}/{len(checks)}",
         }
 
-    def check_nginx_security(self) -> Dict[str, Any]:
+    def check_nginx_security(self) -> dict[str, Any]:
         """检查 Nginx 安全头"""
         nginx_file = Path("nginx/nginx.conf")
         if not nginx_file.exists():
@@ -496,7 +496,7 @@ class SystemChecker:
             "passed": f"{passed}/{len(checks)}",
         }
 
-    def check_port_exposure(self) -> Dict[str, Any]:
+    def check_port_exposure(self) -> dict[str, Any]:
         """检查端口暴露情况"""
         compose_file = Path("docker-compose.yml")
         if not compose_file.exists():
@@ -525,7 +525,7 @@ class SystemChecker:
             "internal_services": internal_ports,
         }
 
-    def run_all(self) -> Dict[str, Any]:
+    def run_all(self) -> dict[str, Any]:
         return {
             "docker_security": self.check_docker_security(),
             "nginx_security": self.check_nginx_security(),
@@ -553,7 +553,7 @@ class ComplianceChecker:
         self.code_reviewer = CodeReviewer(project_root)
         self.system_checker = SystemChecker()
 
-    def run_full_check(self) -> Dict[str, Any]:
+    def run_full_check(self) -> dict[str, Any]:
         """运行完整合规检查"""
         logger.info("[Compliance] 开始等保 2.0 三级合规检查...")
 
@@ -644,7 +644,7 @@ class ComplianceChecker:
 
     def _evaluate_code_check(
         self, check_name: str, code_results: Dict
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """将代码审查结果映射到检查项"""
         mapping = {
             "用户身份标识唯一性": ("password_policy", "用户名唯一性由 auth plugin 保证"),
@@ -678,7 +678,7 @@ class ComplianceChecker:
 
     def _evaluate_config_check(
         self, check_name: str, system_results: Dict
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """将系统检查结果映射到检查项"""
         mapping = {
             "暴力破解防护": ("docker_security", "登录限流 + Fail2Ban"),
@@ -710,7 +710,7 @@ class ComplianceChecker:
         else:
             return "E（不合格）"
 
-    def _generate_summary(self, results: Dict) -> Dict[str, Any]:
+    def _generate_summary(self, results: Dict) -> dict[str, Any]:
         """生成汇总"""
         total_checks = sum(len(cat["checks"]) for cat in results.values())
         passed = sum(
@@ -739,7 +739,7 @@ class ComplianceChecker:
             "pass_rate": round(passed / total_checks * 100, 1) if total_checks > 0 else 0,
         }
 
-    def _generate_recommendations(self, results: Dict) -> List[Dict[str, str]]:
+    def _generate_recommendations(self, results: Dict) -> list[dict[str, str]]:
         """生成改进建议"""
         recommendations = []
 
@@ -777,8 +777,8 @@ class ComplianceChecker:
     # ═══════════════════════════════════════════
 
     def generate_report(
-        self, report: Dict[str, Any], output_dir: Optional[str] = None
-    ) -> Dict[str, str]:
+        self, report: dict[str, Any], output_dir: (str | None) = None
+    ) -> dict[str, str]:
         """生成 HTML + JSON 报告"""
         if output_dir:
             self.output_dir = Path(output_dir)

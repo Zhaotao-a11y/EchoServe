@@ -13,9 +13,9 @@ import json
 import logging
 import random
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
-logger = logging.getLogger("echoseve.evolve.data")
+logger = logging.getLogger("echoserve.evolve.data")
 
 
 class TrainingDataBuilder:
@@ -30,7 +30,7 @@ class TrainingDataBuilder:
         self,
         knowledge_base,
         llm_client=None,
-        generic_data_path: Optional[str] = None,
+        generic_data_path: (str | None) = None,
         output_path: str = "./data/training/train.jsonl",
         variants_per_q: int = 3,
         generic_ratio: float = 0.15,
@@ -105,7 +105,7 @@ class TrainingDataBuilder:
 
     # ─── 内部方法 ────────────────────────────────────────
 
-    def _extract_qa_pairs(self) -> List[Dict[str, str]]:
+    def _extract_qa_pairs(self) -> list[dict[str, str]]:
         """从知识库提取 QA 对"""
         if hasattr(self.kb, "get_all_qa_pairs"):
             return self.kb.get_all_qa_pairs()
@@ -122,7 +122,7 @@ class TrainingDataBuilder:
             # 尝试从 JSONL 文件读取
             return self._load_from_jsonl()
 
-    def _load_from_jsonl(self) -> List[Dict[str, str]]:
+    def _load_from_jsonl(self) -> list[dict[str, str]]:
         """从默认知识库文件加载"""
         kb_path = Path("./data/knowledge/documents.jsonl")
         if not kb_path.exists():
@@ -140,7 +140,7 @@ class TrainingDataBuilder:
                     pairs.append({"question": q, "answer": a})
         return pairs
 
-    def _generate_variants(self, question: str, n: int = 3) -> List[str]:
+    def _generate_variants(self, question: str, n: int = 3) -> list[str]:
         """
         通过 LLM 生成同义变体。
 
@@ -166,7 +166,7 @@ class TrainingDataBuilder:
             logger.warning(f"  LLM 变体生成失败: {e}，回退到模板")
             return self._template_variants(question, n)
 
-    def _template_variants(self, question: str, n: int = 3) -> List[str]:
+    def _template_variants(self, question: str, n: int = 3) -> list[str]:
         """基于模板的简单变体生成（无 LLM 时的回退方案）"""
         templates = [
             "请问{}",
@@ -188,7 +188,7 @@ class TrainingDataBuilder:
             variants.append(v)
         return variants
 
-    def _load_generic_data(self) -> List[Dict[str, str]]:
+    def _load_generic_data(self) -> list[dict[str, str]]:
         """加载通用对话数据（防止灾难性遗忘）"""
         # 优先从指定路径加载
         if self.generic_data_path and Path(self.generic_data_path).exists():
@@ -208,7 +208,7 @@ class TrainingDataBuilder:
             {"instruction": "你是一个有帮助的助手。", "input": "帮我写个邮件", "output": "抱歉，我的专长是回答公司业务相关问题。邮件撰写建议咨询其他工具。"},
         ]
 
-    def _to_alpaca(self, question: str, answer: str) -> Dict[str, str]:
+    def _to_alpaca(self, question: str, answer: str) -> dict[str, str]:
         """转换为 Alpaca 训练格式"""
         return {
             "instruction": "请根据公司知识库回答以下问题：",
@@ -216,7 +216,7 @@ class TrainingDataBuilder:
             "output": answer.strip(),
         }
 
-    def _load_jsonl(self, path: str) -> List[Dict]:
+    def _load_jsonl(self, path: str) -> list[Dict]:
         """通用 JSONL 加载"""
         items = []
         with open(path, "r", encoding="utf-8") as f:
@@ -228,7 +228,7 @@ class TrainingDataBuilder:
 
     # ─── 数据质量检查 ─────────────────────────────────────
 
-    def validate(self, dataset_path: Optional[str] = None) -> Dict[str, Any]:
+    def validate(self, dataset_path: (str | None) = None) -> dict[str, Any]:
         """
         验证训练数据质量。
 

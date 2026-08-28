@@ -9,9 +9,9 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
-logger = logging.getLogger("echoseve.events")
+logger = logging.getLogger("echoserve.events")
 
 
 class EventBus:
@@ -28,10 +28,10 @@ class EventBus:
     """
 
     def __init__(self):
-        self._sync_handlers: Dict[str, List[Callable]] = defaultdict(list)
-        self._async_handlers: Dict[str, List[Callable]] = defaultdict(list)
-        self._wildcard_handlers: List[Callable] = []
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._sync_handlers: dict[str, list[Callable]] = defaultdict(list)
+        self._async_handlers: dict[str, list[Callable]] = defaultdict(list)
+        self._wildcard_handlers: list[Callable] = []
+        self._loop: (asyncio.AbstractEventLoop | None) = None
 
     def set_loop(self, loop: asyncio.AbstractEventLoop):
         """设置事件循环（由 Fiber 在 start 阶段注入）"""

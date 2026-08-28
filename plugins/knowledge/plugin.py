@@ -16,14 +16,14 @@ import uuid
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Any
 from datetime import datetime, timezone
 
 from core.plugin import BaizePlugin
 from core.context import BaizeContext
 from core.fiber import Fiber
 
-logger = logging.getLogger("echoseve.knowledge")
+logger = logging.getLogger("echoserve.knowledge")
 
 # 最大文件大小：50MB
 MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -39,10 +39,10 @@ class KnowledgePlugin(BaizePlugin):
     dependencies = ["core.retriever"]
 
     def __init__(self):
-        self.documents: Dict[str, Dict[str, Any]] = {}
-        self._storage_path: Optional[Path] = None
-        self._upload_dir: Optional[Path] = None
-        self._pending_index: Optional[List[Dict]] = None
+        self.documents: dict[str, dict[str, Any]] = {}
+        self._storage_path: (Path | None) = None
+        self._upload_dir: (Path | None) = None
+        self._pending_index: (list[Dict] | None) = None
         self._lock: asyncio.Lock = asyncio.Lock()
 
     # ─── 生命周期 ─────────────────────────────────────────
@@ -86,9 +86,9 @@ class KnowledgePlugin(BaizePlugin):
         self,
         file_content: bytes,
         filename: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        allowed_roles: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        metadata: (dict[str, Any] | None) = None,
+        allowed_roles: (list[str] | None) = None,
+    ) -> dict[str, Any]:
         """
         上传并解析文档。
         流程：保存文件 → 解析 → 切片 → 双写索引 → 持久化
@@ -212,8 +212,8 @@ class KnowledgePlugin(BaizePlugin):
     async def add_document(
         self,
         content: str,
-        doc_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        doc_id: (str | None) = None,
+        metadata: (dict[str, Any] | None) = None,
     ) -> str:
         """添加单条文档"""
         if not doc_id:
@@ -242,7 +242,7 @@ class KnowledgePlugin(BaizePlugin):
 
         return doc_id
 
-    async def add_documents_batch(self, documents: List[Dict[str, Any]]):
+    async def add_documents_batch(self, documents: list[dict[str, Any]]):
         """批量添加文档"""
         for doc in documents:
             doc_id = doc.get("id") or doc.get("doc_id")
@@ -267,8 +267,8 @@ class KnowledgePlugin(BaizePlugin):
     async def update_document(
         self,
         doc_id: str,
-        content: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        content: (str | None) = None,
+        metadata: (dict[str, Any] | None) = None,
     ) -> bool:
         """更新文档"""
         async with self._lock:
@@ -287,7 +287,7 @@ class KnowledgePlugin(BaizePlugin):
         logger.info(f"[{self.plugin_id}] Updated doc: {doc_id}")
         return True
 
-    def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
+    def get_document(self, doc_id: str) -> (dict[str, Any] | None):
         return self.documents.get(doc_id)
 
     def list_documents(
@@ -295,7 +295,7 @@ class KnowledgePlugin(BaizePlugin):
         offset: int = 0,
         limit: int = 50,
         user_role: str = "*",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """分页列出文档（按权限过滤）"""
         docs = list(self.documents.values())
 
@@ -323,7 +323,7 @@ class KnowledgePlugin(BaizePlugin):
     def count_documents(self) -> int:
         return len(self.documents)
 
-    def get_all_documents(self) -> List[Dict[str, Any]]:
+    def get_all_documents(self) -> list[dict[str, Any]]:
         """获取所有文档列表"""
         return [
             {
@@ -334,7 +334,7 @@ class KnowledgePlugin(BaizePlugin):
             for d in self.documents.values()
         ]
 
-    def get_all_qa_pairs(self) -> List[Dict[str, str]]:
+    def get_all_qa_pairs(self) -> list[dict[str, str]]:
         """
         从知识库提取 QA 对（适用于客服问答数据）。
         解析文档内容中的 "问题：xxx\n回答：xxx" 格式。
@@ -383,10 +383,10 @@ class KnowledgePlugin(BaizePlugin):
         logger.info(f"[KnowledgePlugin] Extracted {len(qa_pairs)} QA pairs from {len(self.documents)} documents")
         return qa_pairs
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """知识库统计"""
         total_chars = sum(len(d["content"]) for d in self.documents.values())
-        file_types: Dict[str, int] = {}
+        file_types: dict[str, int] = {}
         for d in self.documents.values():
             ft = d.get("metadata", {}).get("filetype", "unknown")
             file_types[ft] = file_types.get(ft, 0) + 1
@@ -430,21 +430,24 @@ class KnowledgePlugin(BaizePlugin):
         query: str,
         top_k: int = 5,
         user_role: str = "*",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """检索测试工具：输入问题，返回 Top-K 片段"""
         retriever = self.inject("retriever")
         if not retriever:
             raise RuntimeError("检索引擎未就绪")
 
-        # 带权限过滤的检索
-        allowed_docs = None
-        if user_role != "*":
-            allowed_docs = [
-                d["id"] for d in self.documents.values()
-                if self._check_doc_access(d, user_role)
-            ]
+        # 检索（retriever 不做 ACL 过滤，由知识层负责）
+        results = await retriever.retrieve(query, top_k=top_k)
 
-        results = await retriever.retrieve(query, top_k=top_k, acl_filter=allowed_docs)
+        # 知识层 ACL 过滤
+        if user_role != "*":
+            results = [
+                r for r in results
+                if self._check_doc_access(
+                    {"metadata": r.get("metadata", {})},
+                    user_role,
+                )
+            ]
 
         return {
             "query": query,
@@ -464,13 +467,13 @@ class KnowledgePlugin(BaizePlugin):
 
     # ─── 权限控制 ────────────────────────────────────────
 
-    def _check_doc_access(self, doc: Dict[str, Any], user_role: str) -> bool:
+    def _check_doc_access(self, doc: dict[str, Any], user_role: str) -> bool:
         """检查用户角色是否可访问该文档"""
         allowed = doc.get("metadata", {}).get("allowed_roles", ["*"])
         return "*" in allowed or user_role in allowed
 
     async def set_doc_permissions(
-        self, doc_id: str, allowed_roles: List[str]
+        self, doc_id: str, allowed_roles: list[str]
     ) -> bool:
         """设置文档的可见角色"""
         if doc_id not in self.documents:
@@ -530,7 +533,7 @@ class KnowledgePlugin(BaizePlugin):
             for doc in self.documents.values():
                 f.write(json.dumps(doc, ensure_ascii=False) + "\n")
 
-    async def _append_to_disk(self, doc: Dict[str, Any]):
+    async def _append_to_disk(self, doc: dict[str, Any]):
         if not self._storage_path:
             return
         with open(self._storage_path, "a", encoding="utf-8") as f:

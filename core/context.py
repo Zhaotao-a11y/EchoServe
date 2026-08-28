@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Callable, List
+from typing import Any, Callable
 
 # 延迟导入 plugin，避免循环依赖（plugin.py → context → plugin）
 from .events import EventBus
@@ -34,7 +34,7 @@ def _get_plugin_class():
         # 模块循环导入中，返回 None，调用方需处理
         return None
 
-logger = logging.getLogger("echoseve.context")
+logger = logging.getLogger("echoserve.context")
 
 # Sentinel to distinguish "no default passed" vs "default=None"
 _MISSING = object()
@@ -56,10 +56,10 @@ class BaizeContext:
 
     def __init__(self, settings=None):
         self.settings = settings or default_settings
-        self._services: Dict[str, Any] = {}
-        self._effects: List[Callable] = []
-        self._event_bus: Optional[EventBus] = None
-        self._plugins: Dict[str, BaizePlugin] = {}
+        self._services: dict[str, Any] = {}
+        self._effects: list[Callable] = []
+        self._event_bus: (EventBus | None) = None
+        self._plugins: dict[str, BaizePlugin] = {}
         self._root_dir: Path = Path(__file__).resolve().parent.parent
         self.logger = logging.getLogger("echoseve")
 
@@ -75,7 +75,7 @@ class BaizeContext:
 
     # ─── 服务注册/查找 ──────────────────────────
 
-    def provide(self, key: str, service: Any, cleanup: Optional[Callable] = None):
+    def provide(self, key: str, service: Any, cleanup: (Callable | None) = None):
         """
         注册一个服务到 Context。
 
@@ -239,7 +239,7 @@ class BaizeContext:
 
     # ─── 调试辅助 ──────────────────────────────
 
-    def debug_info(self) -> Dict[str, Any]:
+    def debug_info(self) -> dict[str, Any]:
         """返回 Context 当前状态（调试用）"""
         return {
             "services": list(self._services.keys()),

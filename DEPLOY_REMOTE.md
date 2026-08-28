@@ -15,19 +15,19 @@
 
 ```bash
 # 在本地打包
-cd /path/to/OmniZee
-tar czvf ../OmniZee-deploy.tar.gz .
+cd /path/to/EchoServe
+tar czvf ../EchoServe-deploy.tar.gz .
 
 # 上传到远程服务器（替换为你的服务器地址）
-scp ../OmniZee-deploy.tar.gz root@your-server-ip:/root/
+scp ../EchoServe-deploy.tar.gz root@your-server-ip:/root/
 ```
 
 ### 2. 解压并进入目录
 
 ```bash
 cd /root
-tar xzvf OmniZee-deploy.tar.gz
-cd OmniZee
+tar xzvf EchoServe-deploy.tar.gz
+cd EchoServe
 ```
 
 ### 3. 运行一键启动脚本

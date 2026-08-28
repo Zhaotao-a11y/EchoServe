@@ -34,14 +34,14 @@ import time
 import hashlib
 import logging
 import xml.etree.ElementTree as ET
-from typing import Optional, Dict, Any
+from typing import Any
 from datetime import datetime, timezone
 
 from core.plugin import BaizePlugin
 from core.fiber import Fiber
 from fastapi import Request
 
-logger = logging.getLogger("echoseve.channel.wechat_kf")
+logger = logging.getLogger("echoserve.channel.wechat_kf")
 
 
 class UnifiedMessage:
@@ -53,8 +53,8 @@ class UnifiedMessage:
         channel: str,
         content: str,
         raw_content: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-        session_id: Optional[str] = None,
+        metadata: (dict[str, Any] | None) = None,
+        session_id: (str | None) = None,
         msg_type: str = "text",
     ):
         self.user_id = user_id
@@ -66,7 +66,7 @@ class UnifiedMessage:
         self.timestamp = datetime.now(timezone.utc)
         self.msg_type = msg_type
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "user_id": self.user_id,
             "channel": self.channel,
@@ -92,11 +92,11 @@ class WeChatKFPlugin(BaizePlugin):
         self._secret: str = ""
         self._token: str = ""           # 回调 Token（明文签名验证）
         self._aes_key: str = ""         # 回调 EncodingAESKey（43位，用于 AES 解密）
-        self._access_token: Optional[str] = None
+        self._access_token: (str | None) = None
         self._token_expire_at: float = 0
         self._webhook_path: str = "/webhook/wechat_kf"
         self._max_msg_len: int = 2048   # 客服消息文本长度限制（字节）
-        self._user_sessions: Dict[str, str] = {}   # openid -> session_id 映射
+        self._user_sessions: dict[str, str] = {}   # openid -> session_id 映射
         self._crypto: Any = None        # WeChatCrypto 实例（延迟初始化）
 
     # ─── 生命周期 ──────────────────────────────────────
@@ -380,7 +380,7 @@ class WeChatKFPlugin(BaizePlugin):
 
         url = f"https://qyapi.weixin.qq.com/cgi-bin/kf/send_msg?access_token={access_token}"
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "touser": openid,
             "msgtype": "text",
             "text": {"content": text},
@@ -422,7 +422,7 @@ class WeChatKFPlugin(BaizePlugin):
 
     # ─── Access Token 管理 ─────────────────────────────
 
-    async def _get_access_token(self) -> Optional[str]:
+    async def _get_access_token(self) -> (str | None):
         """
         获取企业微信 access_token（带缓存）。
         API: GET https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=xxx&corpsecret=xxx
@@ -510,7 +510,7 @@ class WeChatKFPlugin(BaizePlugin):
             return False
 
         url = f"https://qyapi.weixin.qq.com/cgi-bin/kf/send_msg?access_token={access_token}"
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "touser": openid,
             "msgtype": "transfer_customer_service",
         }
@@ -536,7 +536,7 @@ class WeChatKFPlugin(BaizePlugin):
 
     # ─── 状态查询 ──────────────────────────────────────
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """返回渠道状态"""
         return {
             "plugin_id": self.plugin_id,

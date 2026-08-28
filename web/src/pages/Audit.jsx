@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useStore } from '../store'
+import { useStore, apiCall, apiCallRaw } from '../store'
 
 function AuditPage() {
   const auditLogs = useStore(s => s.auditLogs)
@@ -22,30 +22,27 @@ function AuditPage() {
     fetchAuditLogs(params)
   }
 
-  const handleExport = () => {
-    const token = localStorage.getItem('token')
+  const handleExport = async () => {
+    // M-12: 使用 apiCallRaw 替代直接 fetch + localStorage
     const params = new URLSearchParams()
     if (startDate) params.set('start_date', startDate)
     if (endDate) params.set('end_date', endDate)
-    const url = `/api/audit/export?${params.toString()}`
-    fetch(url, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } })
-      .then(r => r.blob())
-      .then(blob => {
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob)
-        a.download = `audit_export_${Date.now()}.csv`
-        a.click()
-      })
-      .catch(err => alert(`导出失败: ${err.message}`))
+    try {
+      const resp = await apiCallRaw(`/audit/export?${params.toString()}`)
+      const blob = await resp.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `audit_export_${Date.now()}.csv`
+      a.click()
+    } catch (err) {
+      alert(`导出失败: ${err.message}`)
+    }
   }
 
   const handleVerify = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const resp = await fetch('/api/audit/verify', {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      })
-      const data = await resp.json()
+      // M-12: 使用 apiCall 替代直接 fetch + localStorage
+      const data = await apiCall('/audit/verify')
       setVerifyResult(data)
     } catch (err) {
       setVerifyResult({ valid: false, message: err.message })

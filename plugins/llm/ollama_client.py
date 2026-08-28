@@ -7,11 +7,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional, AsyncIterator
+from typing import Any, AsyncIterator
 
 import httpx
 
-logger = logging.getLogger("echoseve.llm.ollama")
+logger = logging.getLogger("echoserve.llm.ollama")
 
 
 class OllamaClient:
@@ -33,7 +33,7 @@ class OllamaClient:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: (httpx.AsyncClient | None) = None
 
     async def _ensure_client(self) -> httpx.AsyncClient:
         """懒加载 httpx 异步客户端"""
@@ -65,12 +65,12 @@ class OllamaClient:
 
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2048,
         top_p: float = 0.9,
-        stop: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        stop: (list[str] | None) = None,
+    ) -> dict[str, Any]:
         """
         非流式对话，返回 OpenAI 兼容格式。
         """
@@ -122,7 +122,7 @@ class OllamaClient:
 
     async def chat_completion_stream(
         self,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2048,
         top_p: float = 0.9,
@@ -180,7 +180,7 @@ class OllamaClient:
         except Exception:
             return False
 
-    async def list_models(self) -> List[str]:
+    async def list_models(self) -> list[str]:
         """获取可用模型列表"""
         try:
             client = await self._ensure_client()

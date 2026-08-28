@@ -35,9 +35,9 @@ import json
 import time
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
-logger = logging.getLogger("echoseve.train.full")
+logger = logging.getLogger("echoserve.train.full")
 
 
 # ═══════════════════════════════════════════
@@ -87,7 +87,7 @@ def parse_args():
 #  DeepSpeed 配置生成
 # ═══════════════════════════════════════════
 
-def generate_deepspeed_config(args, num_gpus: int) -> Dict[str, Any]:
+def generate_deepspeed_config(args, num_gpus: int) -> dict[str, Any]:
     """生成 DeepSpeed ZeRO 配置"""
     config = {
         "fp16": {

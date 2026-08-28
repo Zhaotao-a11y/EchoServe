@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 
 # 延迟导入，避免循环依赖
-logger = logging.getLogger("echoseve.config")
+logger = logging.getLogger("echoserve.config")
 
 
 class ConfigPlugin:  # 不继承 BaizePlugin 以避免循环导入

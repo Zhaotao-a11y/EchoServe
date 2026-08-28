@@ -543,7 +543,7 @@ def test_prometheus_config():
 
 @test("T13: Grafana 仪表盘 JSON 验证")
 def test_grafana_dashboard():
-    dash_path = PROJECT_ROOT / "monitoring" / "grafana-provisioning" / "dashboards" / "echoseve.json"
+    dash_path = PROJECT_ROOT / "monitoring" / "grafana-provisioning" / "dashboards" / "echoserve.json"
     assert dash_path.exists(), "Grafana 仪表盘 JSON 不存在"
 
     with open(dash_path) as f:

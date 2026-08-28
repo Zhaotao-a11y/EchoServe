@@ -21,9 +21,9 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Callable
+from typing import Any, Callable
 
-logger = logging.getLogger("echoseve.evolve.audit_to_training")
+logger = logging.getLogger("echoserve.evolve.audit_to_training")
 
 
 # Refusal phrases that indicate low-quality / unhelpful responses
@@ -60,7 +60,7 @@ class AuditToTrainingConverter:
         min_response_len: int = 10,
         max_query_len: int = 2000,
         max_response_len: int = 4000,
-        refusal_phrases: Optional[List[str]] = None,
+        refusal_phrases: (list[str] | None) = None,
     ):
         self.audit_log_path = Path(audit_log_path)
         self.training_pool_path = Path(training_pool_path)
@@ -81,9 +81,9 @@ class AuditToTrainingConverter:
 
     def convert(
         self,
-        since_id: Optional[int] = None,
-        output_path: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        since_id: (int | None) = None,
+        output_path: (str | None) = None,
+    ) -> dict[str, Any]:
         """
         Scan audit log and convert new entries to training samples.
 
@@ -130,7 +130,7 @@ class AuditToTrainingConverter:
             }
 
         # Scan and convert
-        new_samples: List[Dict[str, Any]] = []
+        new_samples: list[dict[str, Any]] = []
         skipped = 0
         last_id = since_id
 
@@ -191,7 +191,7 @@ class AuditToTrainingConverter:
             "elapsed_seconds": elapsed,
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Return current state statistics."""
         checkpoint = self._load_checkpoint()
         pool_count = self._count_lines(self.training_pool_path) if self.training_pool_path.exists() else 0
@@ -212,7 +212,7 @@ class AuditToTrainingConverter:
 
     # ─── Internal Methods ─────────────────────────────
 
-    def _convert_entry(self, entry: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _convert_entry(self, entry: dict[str, Any]) -> (dict[str, Any] | None):
         """
         Convert a single audit log entry to an Alpaca-format training sample.
 

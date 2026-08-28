@@ -15,9 +15,9 @@ import logging
 import time
 import random
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Callable
+from typing import Any, Callable
 
-logger = logging.getLogger("echoseve.evolve.eval")
+logger = logging.getLogger("echoserve.evolve.eval")
 
 
 class EvaluationPipeline:
@@ -33,12 +33,12 @@ class EvaluationPipeline:
         test_set_path: str = "./data/training/test_set.jsonl",
         report_dir: str = "./data/training/reports",
         threshold_for_notification: float = 0.02,
-        judge_fn: Optional[Callable[[str, str, str], float]] = None,
+        judge_fn: (Callable[[str, str, str], float] | None) = None,
     ):
         self.test_set_path = Path(test_set_path)
         self.report_dir = Path(report_dir)
         self.threshold = threshold_for_notification
-        self.history: List[Dict[str, Any]] = []
+        self.history: list[dict[str, Any]] = []
         # LLM-as-Judge 评判函数 (question, answer, expected) -> score [0, 1]
         # 为 None 时使用关键词匹配评分
         self._judge_fn = judge_fn
@@ -46,7 +46,7 @@ class EvaluationPipeline:
 
     # ─── 主入口 ────────────────────────────────────────
 
-    def evaluate(self, model_predict_fn: Callable[[str], str]) -> Dict[str, Any]:
+    def evaluate(self, model_predict_fn: Callable[[str], str]) -> dict[str, Any]:
         """
         在测试集上评估模型。
 
@@ -120,7 +120,7 @@ class EvaluationPipeline:
 
         return report
 
-    def weekly_run(self, model_predict_fn: Callable[[str], str]) -> Dict[str, Any]:
+    def weekly_run(self, model_predict_fn: Callable[[str], str]) -> dict[str, Any]:
         """
         每周评估任务（由调度器调用）。
 
@@ -158,10 +158,10 @@ class EvaluationPipeline:
         self,
         model_a_fn: Callable[[str], str],
         model_b_fn: Callable[[str], str],
-        test_set: Optional[List[Dict]] = None,
+        test_set: (list[Dict] | None) = None,
         label_a: str = "RAG-only",
         label_b: str = "RAG+LoRA",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         对比两个模型的表现。
 
@@ -306,7 +306,7 @@ class EvaluationPipeline:
 
         return min(score, 1.0)
 
-    def _extract_fragments(self, text: str, min_len: int = 2) -> List[str]:
+    def _extract_fragments(self, text: str, min_len: int = 2) -> list[str]:
         """
         将文本按标点/空格切分为有意义的片段。
         优先保留带实质内容的片段（中文 >=3 字，英文 >=3 字符）。
@@ -348,10 +348,10 @@ class EvaluationPipeline:
 
     def _bucket_analysis(
         self,
-        test_set: List[Dict],
-        scores_a: List[float],
-        scores_b: List[float],
-    ) -> Dict[str, Dict[str, float]]:
+        test_set: list[Dict],
+        scores_a: list[float],
+        scores_b: list[float],
+    ) -> dict[str, dict[str, float]]:
         """分桶分析：高频 vs 低频问题"""
         # 简化：按问题长度分桶
         short = []  # 短问题（< 15 字符）
@@ -387,7 +387,7 @@ class EvaluationPipeline:
 
     # ─── 工具方法 ────────────────────────────────────────
 
-    def _load_test_set(self) -> List[Dict]:
+    def _load_test_set(self) -> list[Dict]:
         """加载测试集"""
         if not self.test_set_path.exists():
             # 尝试从知识库生成简单测试集
@@ -400,7 +400,7 @@ class EvaluationPipeline:
                     items.append(json.loads(line))
         return items
 
-    def _generate_test_set(self) -> List[Dict]:
+    def _generate_test_set(self) -> list[Dict]:
         """从知识库自动生成测试集（80% 训练 / 20% 测试分割）"""
         kb_path = Path("./data/knowledge/documents.jsonl")
         if not kb_path.exists():
@@ -422,7 +422,7 @@ class EvaluationPipeline:
         split = int(len(items) * 0.2)
         return items[:split]
 
-    def _save_report(self, report: Dict[str, Any]):
+    def _save_report(self, report: dict[str, Any]):
         """保存评估报告"""
         self.report_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.report_dir / f"eval_{time.strftime('%Y%m%d_%H%M')}.json"
@@ -432,7 +432,7 @@ class EvaluationPipeline:
             json.dump(save_report, f, indent=2, ensure_ascii=False)
         logger.info(f"  报告已保存: {report_path}")
 
-    def _percentile(self, data: List[float], p: float) -> float:
+    def _percentile(self, data: list[float], p: float) -> float:
         """计算百分位数"""
         if not data:
             return 0.0
@@ -441,7 +441,7 @@ class EvaluationPipeline:
         idx = min(idx, len(sorted_data) - 1)
         return sorted_data[idx]
 
-    def get_history(self) -> List[Dict[str, Any]]:
+    def get_history(self) -> list[dict[str, Any]]:
         """获取评估历史"""
         return list(self.history)
 
@@ -452,10 +452,10 @@ class EvaluationPipeline:
         current_fn: Callable[[str], str],
         candidate_fn: Callable[[str], str],
         adapter_name: str,
-        promote_fn: Optional[Callable[[str, Dict[str, Any]], bool]] = None,
+        promote_fn: (Callable[[str, dict[str, Any]], bool] | None) = None,
         label_a: str = "current",
         label_b: str = "candidate",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         对比当前模型与候选模型（新 adapter），若候选胜出则自动 promote。
 
@@ -613,7 +613,7 @@ class EvaluationPipeline:
         )
 
     @staticmethod
-    def _parse_judge_response(raw: str) -> Optional[float]:
+    def _parse_judge_response(raw: str) -> (float | None):
         """从 LLM 回答中提取分数"""
         import re
 
@@ -662,17 +662,17 @@ class ABTester:
         )
     """
 
-    def __init__(self, evaluator: Optional[EvaluationPipeline] = None):
+    def __init__(self, evaluator: (EvaluationPipeline | None) = None):
         self.evaluator = evaluator or EvaluationPipeline()
 
     def compare(
         self,
         model_a_fn: Callable[[str], str],
         model_b_fn: Callable[[str], str],
-        test_set: Optional[List[Dict]] = None,
+        test_set: (list[Dict] | None) = None,
         label_a: str = "Model-A",
         label_b: str = "Model-B",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """执行 A/B 对比"""
         return self.evaluator.run_ab_test(
             model_a_fn=model_a_fn,

@@ -47,7 +47,7 @@ from __future__ import annotations
 import uuid
 import time
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Any
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -56,7 +56,7 @@ from core.plugin import BaizePlugin
 # BaizeContext 延迟导入，避免循环依赖
 from core.fiber import Fiber
 
-logger = logging.getLogger("echoseve.auth.enterprise")
+logger = logging.getLogger("echoserve.auth.enterprise")
 
 
 class EnterpriseAuthPlugin(BaizePlugin):
@@ -123,8 +123,8 @@ class EnterpriseAuthPlugin(BaizePlugin):
 
         # 状态
         self._ldap_connection = None
-        self._oauth_state_store: Dict[str, Dict[str, Any]] = {}  # state → metadata
-        self._sync_history: List[Dict[str, Any]] = []
+        self._oauth_state_store: dict[str, dict[str, Any]] = {}  # state → metadata
+        self._sync_history: list[dict[str, Any]] = []
 
     # ─── 生命周期 ──────────────────────────────────
 
@@ -220,7 +220,7 @@ class EnterpriseAuthPlugin(BaizePlugin):
     #  LDAP 认证
     # ════════════════════════════════════════════
 
-    def authenticate_ldap(self, username: str, password: str) -> Optional[Dict[str, Any]]:
+    def authenticate_ldap(self, username: str, password: str) -> dict[str, Any] | None:
         """
         通过 LDAP 验证用户密码。
 
@@ -299,7 +299,7 @@ class EnterpriseAuthPlugin(BaizePlugin):
             logger.error(f"[{self.plugin_id}] LDAP 认证异常: {e}")
             return None
 
-    async def ldap_sync_users(self) -> Dict[str, Any]:
+    async def ldap_sync_users(self) -> dict[str, Any]:
         """
         从 LDAP 同步所有用户到本地。
 
@@ -349,11 +349,7 @@ class EnterpriseAuthPlugin(BaizePlugin):
                     dept = getattr(entry, self._ldap_dept_attr, ["default"])[0]
 
                     # 检查是否已存在
-                    existing = None
-                    for u in auth._users.values():
-                        if u["username"] == username:
-                            existing = u
-                            break
+                    existing = auth.find_user_by_username(username)
 
                     if existing:
                         # 更新
@@ -363,9 +359,7 @@ class EnterpriseAuthPlugin(BaizePlugin):
                         updated += 1
                     elif self._ldap_auto_create:
                         # 创建（无密码，LDAP 认证）
-                        user_id = str(uuid.uuid4())
-                        auth._users[user_id] = {
-                            "user_id": user_id,
+                        await auth.upsert_user({
                             "username": username,
                             "password_hash": "",  # LDAP 用户无本地密码
                             "role": "user",
@@ -375,7 +369,7 @@ class EnterpriseAuthPlugin(BaizePlugin):
                             "created_at": datetime.now(timezone.utc).isoformat(),
                             "last_login": None,
                             "enabled": True,
-                        }
+                        })
                         created += 1
 
                 except Exception as e:
@@ -383,7 +377,7 @@ class EnterpriseAuthPlugin(BaizePlugin):
                     errors += 1
 
             # 保存
-            await auth._save_to_store()
+            await auth.persist()
 
             sync_record = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -572,7 +566,7 @@ class EnterpriseAuthPlugin(BaizePlugin):
             logger.error(f"[{self.plugin_id}] OAuth 回调异常: {e}")
             raise HTTPException(status_code=500, detail=f"OAuth callback error: {e}")
 
-    def _parse_oauth_userinfo(self, userinfo: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_oauth_userinfo(self, userinfo: dict[str, Any]) -> dict[str, Any]:
         """解析不同 OAuth 提供商的用户信息"""
         provider = self._oauth_provider
 
@@ -612,25 +606,24 @@ class EnterpriseAuthPlugin(BaizePlugin):
                 "auth_type": f"oauth_{provider}",
             }
 
-    async def _upsert_oauth_user(self, auth, user_info: Dict[str, Any]) -> Dict[str, Any]:
+    async def _upsert_oauth_user(self, auth, user_info: dict[str, Any]) -> dict[str, Any]:
         """创建或更新 OAuth 用户"""
         username = user_info["username"]
 
         # 查找现有用户
-        for u in auth._users.values():
-            if u["username"] == username:
-                # 更新
-                u["email"] = user_info.get("email", u.get("email", ""))
-                u["department"] = user_info.get("department", u.get("department", ""))
-                u["auth_type"] = user_info.get("auth_type", "oauth")
-                u["last_login"] = datetime.now(timezone.utc).isoformat()
-                return u
+        existing = auth.find_user_by_username(username)
+        if existing:
+            # 更新
+            existing["email"] = user_info.get("email", existing.get("email", ""))
+            existing["department"] = user_info.get("department", existing.get("department", ""))
+            existing["auth_type"] = user_info.get("auth_type", "oauth")
+            existing["last_login"] = datetime.now(timezone.utc).isoformat()
+            await auth.persist()
+            return existing
 
         # 创建新用户
         if self._oauth_auto_create:
-            user_id = str(uuid.uuid4())
             new_user = {
-                "user_id": user_id,
                 "username": username,
                 "password_hash": "",  # OAuth 用户无本地密码
                 "role": "user",
@@ -642,13 +635,13 @@ class EnterpriseAuthPlugin(BaizePlugin):
                 "last_login": datetime.now(timezone.utc).isoformat(),
                 "enabled": True,
             }
-            auth._users[user_id] = new_user
+            created = await auth.upsert_user(new_user)
 
             # 保存
-            await auth._save_to_store()
+            await auth.persist()
 
             logger.info(f"[{self.plugin_id}] OAuth 用户已创建: {username}")
-            return new_user
+            return created
 
         # 不自动创建 → 返回临时信息
         return {
@@ -657,15 +650,17 @@ class EnterpriseAuthPlugin(BaizePlugin):
             "role": "user",
         }
 
-    def _issue_jwt_for_user(self, user: Dict[str, Any]) -> str:
+    def _issue_jwt_for_user(self, user: dict[str, Any]) -> str:
         """为本地用户签发 JWT"""
         auth = self.ctx.inject("auth_service")
-        if auth and hasattr(auth, "_issue_jwt"):
-            return auth._issue_jwt(user)
+        if auth and hasattr(auth, "issue_token"):
+            return auth.issue_token(user)
 
-        # 降级：直接签发
+        # 降级：直接签发（需确保 secret 已配置）
         settings = self.ctx.settings
-        secret = getattr(settings.security, "jwt_secret", "change-me")
+        secret = getattr(settings.security, "jwt_secret", None)
+        if not secret:
+            raise RuntimeError("JWT secret not configured")
         expire_min = getattr(settings.security, "token_expire_minutes", 480)
 
         payload = {
@@ -681,7 +676,7 @@ class EnterpriseAuthPlugin(BaizePlugin):
 
     async def authenticate(
         self, username: str, password: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         统一认证入口（认证链）。
 
@@ -731,7 +726,7 @@ class EnterpriseAuthPlugin(BaizePlugin):
 
     # ─── 状态查询 ─────────────────────────────────
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """返回企业认证配置状态"""
         return {
             "plugin_id": self.plugin_id,

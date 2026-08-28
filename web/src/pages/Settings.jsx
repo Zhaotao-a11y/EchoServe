@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useStore } from '../store'
+import { useStore, apiCall } from '../store'
 
 function SettingsPage() {
   const user = useStore(s => s.user)
@@ -32,21 +32,16 @@ function SettingsPage() {
   const loadWechatConfig = async () => {
     setWechatLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const resp = await fetch('/api/settings/wechat-kf', {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      // M-12: 使用 apiCall 替代直接 fetch + localStorage
+      const data = await apiCall('/settings/wechat-kf')
+      const cfg = data.config || {}
+      setWechatConfig({
+        url: cfg.url || '',
+        token: cfg.token || '',
+        aesKey: cfg.aesKey || '',
+        corpId: cfg.corpId || '',
+        secret: cfg.secret || '',
       })
-      if (resp.ok) {
-        const data = await resp.json()
-        const cfg = data.config || {}
-        setWechatConfig({
-          url: cfg.url || '',
-          token: cfg.token || '',
-          aesKey: cfg.aesKey || '',
-          corpId: cfg.corpId || '',
-          secret: cfg.secret || '',
-        })
-      }
     } catch (e) {
       console.error('加载微信配置失败:', e)
     } finally {
@@ -56,11 +51,8 @@ function SettingsPage() {
 
   const loadApiKeys = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const resp = await fetch('/api/auth/api-keys', {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      })
-      const data = await resp.json()
+      // M-12: 使用 apiCall 替代直接 fetch + localStorage
+      const data = await apiCall('/auth/api-keys')
       setApiKeys(data.api_keys || [])
     } catch (e) {
       console.error(e)
@@ -70,14 +62,9 @@ function SettingsPage() {
   const loadSystemInfo = async () => {
     setSystemInfoLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const resp = await fetch('/api/settings/system', {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      })
-      if (resp.ok) {
-        const data = await resp.json()
-        if (data.system) setSystemInfo(data.system)
-      }
+      // M-12: 使用 apiCall 替代直接 fetch + localStorage
+      const data = await apiCall('/settings/system')
+      if (data.system) setSystemInfo(data.system)
     } catch (e) {
       console.error('加载系统信息失败:', e)
     } finally {
@@ -87,16 +74,11 @@ function SettingsPage() {
 
   const createApiKey = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const resp = await fetch('/api/auth/api-key', {
+      // M-12: 使用 apiCall 替代直接 fetch + localStorage
+      const data = await apiCall('/auth/api-key', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ name: newKeyName || 'default' }),
       })
-      const data = await resp.json()
       setKeyResult(data)
       setNewKeyName('')
       loadApiKeys()
@@ -108,11 +90,8 @@ function SettingsPage() {
   const revokeKey = async (keyId) => {
     if (!confirm('确定吊销此 API Key?')) return
     try {
-      const token = localStorage.getItem('token')
-      await fetch(`/api/auth/api-key/${keyId}`, {
-        method: 'DELETE',
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      })
+      // M-12: 使用 apiCall 替代直接 fetch + localStorage
+      await apiCall(`/auth/api-key/${keyId}`, { method: 'DELETE' })
       loadApiKeys()
     } catch (e) {
       alert(`吊销失败: ${e.message}`)
@@ -322,28 +301,15 @@ function SettingsPage() {
             <div class="flex gap-2 pt-2">
               <button
                 onClick={async () => {
-                  const token = localStorage.getItem('token')
-                  if (!token) {
-                    setWechatSaveMsg('请先登录')
-                    return
-                  }
+                  // M-12: 使用 apiCall 替代直接 fetch + localStorage
                   try {
-                    const resp = await fetch('/api/settings/wechat-kf', {
+                    const data = await apiCall('/settings/wechat-kf', {
                       method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                      },
-                      body: JSON.stringify(wechatConfig)
+                      body: JSON.stringify(wechatConfig),
                     })
-                    const data = await resp.json()
-                    if (resp.ok) {
-                      setWechatSaveMsg('配置已保存，建议重启服务生效')
-                    } else {
-                      setWechatSaveMsg(`保存失败: ${data.detail || '未知错误'}`)
-                    }
+                    setWechatSaveMsg('配置已保存，建议重启服务生效')
                   } catch (e) {
-                    setWechatSaveMsg(`网络错误: ${e.message}`)
+                    setWechatSaveMsg(`保存失败: ${e.message}`)
                   }
                 }}
                 class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"

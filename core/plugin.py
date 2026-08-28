@@ -13,9 +13,9 @@ EchoServe V0.1.0 — BaizePlugin 基类
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Callable
+from typing import Any, Callable
 
-logger = logging.getLogger("echoseve.plugin")
+logger = logging.getLogger("echoserve.plugin")
 
 
 class BaizePlugin:
@@ -35,8 +35,8 @@ class BaizePlugin:
 
     plugin_id: str = ""
     plugin_name: str = ""
-    plugin_version: str = "0.1.0"
-    dependencies: List[str] = []
+    plugin_version: str = "0.2.0"
+    dependencies: list[str] = []
 
     # ─── 生命周期（由 Fiber 调用）──────────────────
 

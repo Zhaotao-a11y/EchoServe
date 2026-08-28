@@ -9,10 +9,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import List, Dict, Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator
 import httpx
 
-logger = logging.getLogger("echoseve.llm.client")
+logger = logging.getLogger("echoserve.llm.client")
 
 
 class VLLMClient:
@@ -38,7 +38,7 @@ class VLLMClient:
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: (httpx.AsyncClient | None) = None
 
     async def _ensure_client(self):
         """懒加载 httpx 客户端"""
@@ -102,12 +102,12 @@ class VLLMClient:
 
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2048,
         top_p: float = 0.9,
-        stop: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        stop: (list[str] | None) = None,
+    ) -> dict[str, Any]:
         """
         非流式对话补全。
 
@@ -138,7 +138,7 @@ class VLLMClient:
 
     async def chat_completion_stream(
         self,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2048,
         top_p: float = 0.9,
@@ -185,7 +185,7 @@ class VLLMClient:
                     logger.warning(f"[VLLM] Failed to parse chunk: {data[:100]}")
                     continue
 
-    async def list_models(self) -> List[str]:
+    async def list_models(self) -> list[str]:
         """列出可用模型"""
         await self._ensure_client()
         response = await self._client.get("/v1/models")

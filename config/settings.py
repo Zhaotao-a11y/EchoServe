@@ -4,13 +4,14 @@ EchoServe V0.1.0 — 全局配置
 """
 from __future__ import annotations
 
-import os
 import logging
+import os
 from pathlib import Path
-from pydantic import BaseModel, Field
-from dotenv import load_dotenv
 
-logger = logging.getLogger("echoseve.config")
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+
+logger = logging.getLogger("echoserve.config")
 
 # 加载 .env 文件
 load_dotenv()
@@ -18,8 +19,8 @@ load_dotenv()
 # 项目根目录
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
-# JWT Secret 默认值哨兵 — 非生产环境可容忍，生产必须覆盖
-_JWT_SECRET_DEFAULT = "change-me-to-a-random-secret"
+# JWT Secret 默认值哨兵 — None 表示未设置，生产环境必须显式配置
+_JWT_SECRET_DEFAULT: str | None = None
 
 
 class ModelConfig(BaseModel):
@@ -49,7 +50,7 @@ class ChromaConfig(BaseModel):
 class EmbeddingConfig(BaseModel):
     """嵌入模型配置"""
     model: str = Field(default=os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5"))
-    dim: int = Field(default=int(os.getenv("EMBEDDING_DIM", "512")))
+    dim: int = Field(default=int(os.getenv("EMBEDDING_DIM", "384")))
 
 
 class RetrievalConfig(BaseModel):
@@ -74,12 +75,17 @@ class APIConfig(BaseModel):
     host: str = Field(default=os.getenv("API_HOST", "0.0.0.0"))
     port: int = Field(default=int(os.getenv("API_PORT", "8080")))
     debug: bool = Field(default=os.getenv("API_DEBUG", "false").lower() == "true")
-    cors_origins: str = Field(default=os.getenv("CORS_ORIGINS", "*"))
+    cors_origins: str = Field(
+        default=os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:3000,http://127.0.0.1:3000",
+        )
+    )
 
 
 class SecurityConfig(BaseModel):
     """安全配置"""
-    jwt_secret: str = Field(default=os.getenv("JWT_SECRET", _JWT_SECRET_DEFAULT))
+    jwt_secret: str | None = Field(default=os.getenv("JWT_SECRET", _JWT_SECRET_DEFAULT))
     token_expire_minutes: int = Field(default=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480")))
     bcrypt_cost: int = Field(default=int(os.getenv("BCRYPT_COST", "12")))
     max_login_attempts: int = Field(default=int(os.getenv("MAX_LOGIN_ATTEMPTS", "5")))
@@ -88,27 +94,34 @@ class SecurityConfig(BaseModel):
     def validate_jwt_secret(self) -> None:
         """启动时校验 JWT Secret 安全性。
 
-        非 debug 模式下使用默认值将拒绝启动。
+        非 debug 模式下未设置或为空将拒绝启动。
+        debug 模式下自动生成临时密钥（仅用于本地开发）。
         应在应用 lifespan 的最前面调用。
         """
+        import secrets as _secrets
+
         is_debug = os.getenv("API_DEBUG", "false").lower() == "true"
-        if self.jwt_secret == _JWT_SECRET_DEFAULT and not is_debug:
+        is_default = not self.jwt_secret or self.jwt_secret == _JWT_SECRET_DEFAULT
+
+        if is_default and not is_debug:
             raise RuntimeError(
-                "JWT_SECRET 仍为默认值，生产环境不安全。"
+                "JWT_SECRET 未设置，生产环境不安全。"
                 "请在 .env 中设置随机密钥，例如: "
                 "python -c \"import secrets; print(secrets.token_urlsafe(32))\""
             )
-        if self.jwt_secret == _JWT_SECRET_DEFAULT and is_debug:
+        if is_default and is_debug:
+            # debug 模式自动生成临时密钥，避免开发环境启动失败
+            self.jwt_secret = _secrets.token_urlsafe(32)
             logger.warning(
-                "JWT_SECRET 使用默认值（仅 debug 模式容忍），"
-                "生产环境务必设置随机密钥"
+                "JWT_SECRET 未设置（debug 模式），已自动生成临时密钥。"
+                "生产环境务必在 .env 中设置固定随机密钥"
             )
 
 
 class LogConfig(BaseModel):
     """日志配置"""
     level: str = Field(default=os.getenv("LOG_LEVEL", "INFO"))
-    file: str = Field(default=os.getenv("LOG_FILE", "./data/logs/echoseve.log"))
+    file: str = Field(default=os.getenv("LOG_FILE", "./data/logs/echoserve.log"))
 
 
 class MonitoringConfig(BaseModel):
@@ -130,7 +143,7 @@ class EvolveConfig(BaseModel):
     lora_alpha: int = Field(default=int(os.getenv("LORA_ALPHA", "16")))
     lora_dropout: float = Field(default=float(os.getenv("LORA_DROPOUT", "0.05")))
     train_epochs: int = Field(default=int(os.getenv("TRAIN_EPOCHS", "3")))
-    train_batch_size: int = Field(default=int(os.getenv("TRAIN_BATCH_SIZE", "2")))
+    train_batch_size: int = Field(default=int(os.getenv("TRAIN_BATCH_SIZE", "4")))
     train_learning_rate: float = Field(default=float(os.getenv("TRAIN_LR", "2e-4")))
     variants_per_q: int = Field(default=int(os.getenv("VARIANTS_PER_Q", "3")))
     generic_ratio: float = Field(default=float(os.getenv("GENERIC_RATIO", "0.15")))
@@ -142,6 +155,47 @@ class EvolveConfig(BaseModel):
     dpo_epochs: int = Field(default=int(os.getenv("DPO_EPOCHS", "2")))
     # V0.2.0 新增 — LLM-as-Judge 评估
     llm_judge_enabled: bool = Field(default=os.getenv("LLM_JUDGE_ENABLED", "false").lower() == "true")
+
+
+class EvolutionConfig(BaseModel):
+    """进化系统配置（Phase 1-3 统一参数）"""
+    # Phase 1: 存储 & 采集
+    db_path: str = Field(default=os.getenv("EVOLUTION_DB_PATH", "./data/evolution.db"))
+    archive_dir: str = Field(default=os.getenv("EVOLUTION_ARCHIVE_DIR", "./data/evolution_archive"))
+    fallback_dir: str = Field(default=os.getenv("EVOLUTION_FALLBACK_DIR", "./data/evolution_fallback"))
+    max_batch: int = Field(default=int(os.getenv("EVOLUTION_MAX_BATCH", "50")))
+    flush_interval: float = Field(default=float(os.getenv("EVOLUTION_FLUSH_INTERVAL", "5")))
+    max_backlog: int = Field(default=int(os.getenv("EVOLUTION_MAX_BACKLOG", "10000")))
+    collector_enabled: bool = Field(default=os.getenv("EVOLUTION_COLLECTOR_ENABLED", "true").lower() == "true")
+    store_hot_days: int = Field(default=int(os.getenv("EVOLUTION_HOT_DAYS", "7")))
+    store_cleanup_days: int = Field(default=int(os.getenv("EVOLUTION_CLEANUP_DAYS", "90")))
+
+    # Phase 2: 实验 & 评估
+    eval_interval: int = Field(default=int(os.getenv("EVOLUTION_EVAL_INTERVAL", "3600")))
+    ab_test_alpha: float = Field(default=float(os.getenv("EVOLUTION_AB_ALPHA", "0.05")))
+    ab_test_min_samples: int = Field(default=int(os.getenv("EVOLUTION_AB_MIN_SAMPLES", "500")))
+    experiment_default_traffic: float = Field(default=float(os.getenv("EVOLUTION_EXPERIMENT_TRAFFIC", "0.1")))
+    experiment_min_sample: int = Field(default=int(os.getenv("EVOLUTION_MIN_SAMPLE", "100")))
+
+    # Phase 3: 挖掘
+    min_mining_samples: int = Field(default=int(os.getenv("EVOLUTION_MINING_MIN_SAMPLES", "2000")))
+    max_patterns_per_day: int = Field(default=int(os.getenv("EVOLUTION_MAX_PATTERNS_DAY", "10")))
+    mining_min_support: int = Field(default=int(os.getenv("EVOLUTION_MINING_MIN_SUPPORT", "10")))
+    mining_min_success_rate: float = Field(default=float(os.getenv("EVOLUTION_MINING_MIN_RATE", "0.9")))
+    mining_max_sequence_length: int = Field(default=int(os.getenv("EVOLUTION_MINING_MAX_SEQ", "5")))
+
+    # Phase 3: 模板
+    canary_percent: float = Field(default=float(os.getenv("EVOLUTION_CANARY_PERCENT", "10.0")))
+    full_rollout_threshold: float = Field(default=float(os.getenv("EVOLUTION_FULL_ROLLOUT_THRESHOLD", "95.0")))
+    template_auto_promote: bool = Field(default=os.getenv("EVOLUTION_AUTO_PROMOTE", "false").lower() == "true")
+    template_promote_threshold: float = Field(default=float(os.getenv("EVOLUTION_PROMOTE_THRESHOLD", "0.95")))
+    template_canary_percent: float = Field(default=float(os.getenv("EVOLUTION_CANARY_PERCENT_RATIO", "0.1")))
+
+    # 通知
+    notifier_webhook: str | None = Field(default=os.getenv("EVOLUTION_NOTIFIER_WEBHOOK") or None)
+
+    # Metrics
+    metrics_capacity: int = Field(default=int(os.getenv("EVOLUTION_METRICS_CAPACITY", "10000")))
 
 
 class BackupConfig(BaseModel):
@@ -187,6 +241,7 @@ class Settings(BaseModel):
     log: LogConfig = LogConfig()
     monitoring: MonitoringConfig = MonitoringConfig()
     evolve: EvolveConfig = EvolveConfig()
+    evolution: EvolutionConfig = EvolutionConfig()
     backup: BackupConfig = BackupConfig()
     redis: RedisConfig = RedisConfig()
     postgres: PostgreSQLConfig = PostgreSQLConfig()

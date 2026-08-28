@@ -18,33 +18,78 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Optional, List, Dict, Any
+import os
+import re
+from pathlib import Path
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 
 from api.deps import get_knowledge_base, verify_token, require_permission
 from plugins.knowledge.plugin import KnowledgePlugin
 
-logger = logging.getLogger("echoseve.api.knowledge")
+logger = logging.getLogger("echoserve.api.knowledge")
 
 router = APIRouter()
+
+# ─── 文件上传安全校验常量 ──────────────────────────────
+_ALLOWED_UPLOAD_EXTENSIONS: frozenset[str] = frozenset({
+    ".pdf", ".docx", ".doc", ".md", ".markdown", ".txt", ".jsonl",
+})
+_MAX_UPLOAD_SIZE_BYTES: int = 50 * 1024 * 1024  # 50 MB
+
+
+def _sanitize_filename(filename: str) -> str:
+    """清理文件名：去除路径前缀、替换危险字符，防止路径穿越。"""
+    # 仅保留 basename，去掉任何目录前缀
+    safe_name = os.path.basename(filename)
+    # 替换危险字符（保留中文、字母、数字、点、下划线、连字符）
+    safe_name = re.sub(r"[^\w.\-\u4e00-\u9fff]", "_", safe_name)
+    # 防止空文件名
+    if not safe_name or safe_name.startswith("."):
+        safe_name = f"upload_{safe_name}" if safe_name else "upload_unknown"
+    return safe_name
+
+
+def _validate_upload_file(file: UploadFile, content: bytes) -> str:
+    """校验上传文件：扩展名白名单、大小限制。返回清理后的安全文件名。"""
+    raw_filename = file.filename or "unknown"
+    safe_filename = _sanitize_filename(raw_filename)
+
+    # 扩展名白名单校验
+    ext = Path(safe_filename).suffix.lower()
+    if ext not in _ALLOWED_UPLOAD_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的文件类型: {ext}，仅支持: {', '.join(sorted(_ALLOWED_UPLOAD_EXTENSIONS))}",
+        )
+
+    # 文件大小校验
+    if len(content) > _MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"文件过大: {len(content) / 1024 / 1024:.1f}MB，上限 {_MAX_UPLOAD_SIZE_BYTES / 1024 / 1024:.0f}MB",
+        )
+
+    return safe_filename
 
 
 # ─── 请求模型 ─────────────────────────────────────
 
 class AddDocumentRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=10000)
-    doc_id: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    doc_id: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class UpdateDocumentRequest(BaseModel):
-    content: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    content: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class SetACLRequest(BaseModel):
-    allowed_roles: List[str] = Field(..., description="允许访问的角色列表，['*']表示所有人")
+    allowed_roles: list[str] = Field(..., description="允许访问的角色列表，['*']表示所有人")
 
 
 # ─── 辅助函数 ─────────────────────────────────────
@@ -121,7 +166,9 @@ async def upload_file(
 
     # 读取文件内容
     content = await file.read()
-    filename = file.filename or "unknown"
+
+    # 安全校验：扩展名白名单 + 文件大小限制 + 文件名清理
+    filename = _validate_upload_file(file, content)
 
     # ─── JSONL 文件走批量导入 ─────────────────────
     if filename.lower().endswith('.jsonl'):
@@ -223,6 +270,10 @@ async def ingest_jsonl(
     """批量导入 JSONL 文件"""
     kb, _ = kb_role
     content = await file.read()
+
+    # 安全校验：扩展名白名单 + 文件大小限制 + 文件名清理
+    filename = _validate_upload_file(file, content)
+
     text = content.decode("utf-8")
     documents = []
     line_num = 0

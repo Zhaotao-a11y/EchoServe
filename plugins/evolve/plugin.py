@@ -15,7 +15,7 @@ import logging
 import time
 import asyncio
 from pathlib import Path
-from typing import Optional, Dict, Any, Callable, List
+from typing import Any, Callable
 
 from core.plugin import BaizePlugin
 from core.context import BaizeContext
@@ -26,7 +26,7 @@ from .trainer import LoRATrainer
 from .evaluator import EvaluationPipeline, ABTester
 from .dpo_trainer import PreferenceStore, DPOTrainer
 
-logger = logging.getLogger("echoseve.evolve")
+logger = logging.getLogger("echoserve.evolve")
 
 
 class ModelEvolvePlugin(BaizePlugin):
@@ -45,18 +45,18 @@ class ModelEvolvePlugin(BaizePlugin):
     dependencies = ["core.model", "core.knowledge", "core.llm"]
 
     def __init__(self):
-        self.ctx: Optional[BaizeContext] = None
-        self.data_builder: Optional[TrainingDataBuilder] = None
-        self.trainer: Optional[LoRATrainer] = None
-        self.evaluator: Optional[EvaluationPipeline] = None
-        self.ab_tester: Optional[ABTester] = None
-        self.preference_store: Optional[PreferenceStore] = None
-        self.adapters: Dict[str, Dict[str, Any]] = {}
+        self.ctx: BaizeContext | None = None
+        self.data_builder: TrainingDataBuilder | None = None
+        self.trainer: LoRATrainer | None = None
+        self.evaluator: EvaluationPipeline | None = None
+        self.ab_tester: ABTester | None = None
+        self.preference_store: PreferenceStore | None = None
+        self.adapters: dict[str, dict[str, Any]] = {}
         self.training_status: str = "idle"  # idle/running/completed/failed
-        self.last_result: Optional[Dict[str, Any]] = None
-        self.last_report: Optional[Dict[str, Any]] = None
-        self.weekly_job_id: Optional[str] = None
-        self.last_promote_result: Optional[Dict[str, Any]] = None
+        self.last_result: dict[str, Any] | None = None
+        self.last_report: dict[str, Any] | None = None
+        self.weekly_job_id: str | None = None
+        self.last_promote_result: dict[str, Any] | None = None
 
     # ─── 生命周期 ──────────────────────────────────────
 
@@ -118,7 +118,7 @@ class ModelEvolvePlugin(BaizePlugin):
 
     # ─── 进化策略 ──────────────────────────────────────
 
-    def check_and_evolve(self) -> Dict[str, Any]:
+    def check_and_evolve(self) -> dict[str, Any]:
         """
         检查知识库规模，返回进化建议。
 
@@ -166,8 +166,8 @@ class ModelEvolvePlugin(BaizePlugin):
     def trigger_offline_lora(
         self,
         train_data_path: str = "./data/training/train.jsonl",
-        output_dir: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        output_dir: str | None = None,
+    ) -> dict[str, Any]:
         """
         触发离线 LoRA 训练。
 
@@ -252,8 +252,8 @@ class ModelEvolvePlugin(BaizePlugin):
     def trigger_offline_full_finetune(
         self,
         train_data_path: str = "./data/training/train_full.jsonl",
-        output_dir: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        output_dir: str | None = None,
+    ) -> dict[str, Any]:
         """
         触发全参数微调（阶段三）。
 
@@ -298,7 +298,7 @@ class ModelEvolvePlugin(BaizePlugin):
 
     # ─── 评估 ──────────────────────────────────────────
 
-    def run_evaluation(self, model_predict_fn: Callable[[str], str]) -> Dict[str, Any]:
+    def run_evaluation(self, model_predict_fn: Callable[[str], str]) -> dict[str, Any]:
         """
         手动触发评估。
         """
@@ -314,7 +314,7 @@ class ModelEvolvePlugin(BaizePlugin):
         model_b_fn: Callable[[str], str],
         label_a: str = "RAG-only",
         label_b: str = "RAG+LoRA",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         手动触发 A/B 测试。
         """
@@ -329,7 +329,7 @@ class ModelEvolvePlugin(BaizePlugin):
 
     # ─── 查询接口 ──────────────────────────────────────
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """获取进化引擎完整状态"""
         return {
             "training_status": self.training_status,
@@ -347,7 +347,7 @@ class ModelEvolvePlugin(BaizePlugin):
             ),
         }
 
-    def list_adapters(self) -> List[Dict[str, Any]]:
+    def list_adapters(self) -> list[dict[str, Any]]:
         """列出所有已训练的 adapter"""
         return [
             {"name": name, **info}
@@ -434,7 +434,7 @@ class ModelEvolvePlugin(BaizePlugin):
 
     # ─── P1-A/P1-B: 自动 DPO 触发 + 评估 + promote ────
 
-    def _on_dpo_auto_trigger(self, trigger_info: Dict[str, Any]):
+    def _on_dpo_auto_trigger(self, trigger_info: dict[str, Any]):
         """
         PreferenceStore 自动触发回调（P1-A → P1-B 串联）。
 
@@ -547,38 +547,38 @@ class ModelEvolvePlugin(BaizePlugin):
             return
 
         import asyncio
+        import threading
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # 我们在同步回调中，需要在线程池运行异步评估
-                # 使用 run_in_executor + 新事件循环
-                import threading
+            # 检测是否在运行中的事件循环内
+            asyncio.get_running_loop()
 
-                result_holder = {}
+            # 在 async 上下文中——需要在线程中运行，避免嵌套事件循环
+            result_holder: dict[str, Any] = {}
 
-                def _run_eval():
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    try:
-                        result = self._run_eval_async(
-                            chat, model_manager, adapter_name, adapter_path
-                        )
-                        result_holder["result"] = new_loop.run_until_complete(result)
-                    finally:
-                        new_loop.close()
+            def _run_eval():
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    result = self._run_eval_async(
+                        chat, model_manager, adapter_name, adapter_path
+                    )
+                    result_holder["result"] = new_loop.run_until_complete(result)
+                except Exception as e:
+                    result_holder["error"] = e
+                finally:
+                    new_loop.close()
 
-                t = threading.Thread(target=_run_eval)
-                t.start()
-                t.join(timeout=600)  # 10 分钟超时
+            t = threading.Thread(target=_run_eval)
+            t.start()
+            t.join(timeout=600)  # 10 分钟超时
 
-                promote_result = result_holder.get("result")
-            else:
-                promote_result = loop.run_until_complete(
-                    self._run_eval_async(chat, model_manager, adapter_name, adapter_path)
-                )
+            if "error" in result_holder:
+                raise result_holder["error"]
+            promote_result = result_holder.get("result")
+
         except RuntimeError:
-            # 没有事件循环，创建新的
+            # 没有运行中的事件循环，可以安全地用 asyncio.run()
             promote_result = asyncio.run(
                 self._run_eval_async(chat, model_manager, adapter_name, adapter_path)
             )
@@ -606,22 +606,30 @@ class ModelEvolvePlugin(BaizePlugin):
 
     async def _run_eval_async(
         self, chat, model_manager, adapter_name: str, adapter_path: str
-    ) -> Dict[str, Any]:
-        """异步执行评估和 promote 逻辑"""
+    ) -> dict[str, Any]:
+        """异步执行评估和 promote 逻辑。
+
+        使用 run_coroutine_threadsafe 在主事件循环上调度 async 调用，
+        通过 to_thread 运行同步评估器，避免嵌套事件循环。
+        """
 
         import time as _time
 
+        # 获取当前运行的事件循环，供同步回调使用
+        main_loop = asyncio.get_running_loop()
+
         def current_predict(question: str) -> str:
-            """当前模型预测"""
+            """当前模型预测——通过 run_coroutine_threadsafe 调度"""
             try:
-                loop = asyncio.get_event_loop()
-                result = loop.run_until_complete(
+                future = asyncio.run_coroutine_threadsafe(
                     chat.chat(
                         session_id=f"eval_cur_{int(_time.time())}",
                         user_message=question,
                         use_rag=True,
-                    )
+                    ),
+                    main_loop,
                 )
+                result = future.result(timeout=60)
                 return result.get("reply", "")
             except Exception as e:
                 logger.warning(f"  current_predict failed: {e}")
@@ -630,20 +638,21 @@ class ModelEvolvePlugin(BaizePlugin):
         def candidate_predict(question: str) -> str:
             """候选模型预测（使用新 adapter）"""
             try:
-                loop = asyncio.get_event_loop()
                 messages = [{"role": "user", "content": question}]
-                reply = loop.run_until_complete(
+                future = asyncio.run_coroutine_threadsafe(
                     model_manager.chat(
                         messages=messages,
                         lora_name=adapter_name,
-                    )
+                    ),
+                    main_loop,
                 )
+                reply = future.result(timeout=60)
                 return reply or ""
             except Exception as e:
                 logger.warning(f"  candidate_predict failed: {e}")
                 return ""
 
-        def promote_fn(name: str, ab_result: Dict[str, Any]) -> bool:
+        def promote_fn(name: str, ab_result: dict[str, Any]) -> bool:
             """执行模型切换"""
             try:
                 # 找到基础模型 ID
@@ -658,18 +667,19 @@ class ModelEvolvePlugin(BaizePlugin):
                     logger.error("  未找到基础模型，无法 promote")
                     return False
 
-                import asyncio as _aio
-                loop = _aio.get_event_loop()
-                switch_result = loop.run_until_complete(
-                    model_manager.switch_model(base_model_id, use_lora=name)
+                future = asyncio.run_coroutine_threadsafe(
+                    model_manager.switch_model(base_model_id, use_lora=name),
+                    main_loop,
                 )
+                switch_result = future.result(timeout=30)
                 return switch_result.get("status") == "success"
             except Exception as e:
                 logger.error(f"  promote 失败: {e}")
                 return False
 
-        # 运行评估并 promote
-        result = self.evaluator.evaluate_and_promote(
+        # 在线程池中运行同步评估器，避免阻塞事件循环
+        result = await asyncio.to_thread(
+            self.evaluator.evaluate_and_promote,
             current_fn=current_predict,
             candidate_fn=candidate_predict,
             adapter_name=adapter_name,

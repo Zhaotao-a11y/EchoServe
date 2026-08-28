@@ -18,13 +18,27 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from config.settings import settings
 from core.context import BaizeContext
 from core.fiber import FiberManager
 from core.plugin_loader import PluginLoader
 
-logger = logging.getLogger("echoseve.main")
+logger = logging.getLogger("echoserve.main")
+
+# M-3: 使用 importlib 替代 sys.path.insert 运行时路径修改
+import importlib.util
+
+def _load_module_from_path(module_name: str, file_path: Path):
+    """从指定文件路径加载模块，不污染 sys.path。"""
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module {module_name} from {file_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 # ─── P0 插件 ──────────────────────────────────────
 from plugins.auth.plugin import AuthPlugin
@@ -45,6 +59,9 @@ from plugins.monitoring.plugin import MonitoringPlugin
 from plugins.auth_enterprise.plugin import EnterpriseAuthPlugin    # LDAP + OAuth2
 from plugins.channel_whatsapp.plugin import WhatsAppChannelPlugin  # WhatsApp
 
+# ─── Evolution System v1.0（自我进化基础设施）────────
+from plugins.evolution.plugin import EvolutionPlugin  # Phase 1-3 数据采集 + A/B + 技能进化
+
 # ─── 路由导入 ──────────────────────────────────────
 from api.routers import auth as auth_router
 from api.routers import audit as audit_router
@@ -60,6 +77,9 @@ ctx: BaizeContext = None
 fiber_manager: FiberManager = None
 loader: PluginLoader = None
 
+# 前端静态文件目录
+WEB_DIST = Path(__file__).parent.parent / "web" / "dist"
+
 # 认证依赖（在 ctx 定义后导入，避免循环引用）
 from api.deps import verify_token  # noqa: E402
 
@@ -74,99 +94,139 @@ async def lifespan(app: FastAPI):
         level=getattr(logging, settings.log.level.upper(), logging.INFO),
         format="%(levelname)s %(name)s - %(message)s",
     )
-    logger = logging.getLogger("echoseve.main")
+    logger = logging.getLogger("echoserve.main")
 
     # 安全校验：JWT Secret、CORS 等
-    settings.validate_security()
+    try:
+        settings.validate_security()
+    except RuntimeError as e:
+        logger.error(f"[Main] Security validation failed: {e}")
+        raise
 
     logger.info("=" * 60)
-    logger.info("  EchoServe V0.1.0 — Starting...")
+    logger.info("  EchoServe V0.2.0 — Starting...")
     logger.info("  Features: Auth | Audit | RAG+Rerank | Chat | WeChat |")
     logger.info("            ModelMgr | Evolve | Monitor | WhatsApp | EnterpriseAuth")
     logger.info("=" * 60)
 
-    # 1. 创建 Context
-    ctx = BaizeContext(settings)
-    logger.info("[Main] BaizeContext created")
+    startup_failed = False
+    try:
+        # 1. 创建 Context
+        ctx = BaizeContext(settings)
+        logger.info("[Main] BaizeContext created")
 
-    # 1.5 创建插件共享路由器，供插件 on_init 中注册 webhook 等路由
-    plugin_router = APIRouter()
-    ctx.provide("http_router", plugin_router)
-    logger.info("[Main] Provided http_router to context")
+        # 1.5 创建插件共享路由器，供插件 on_init 中注册 webhook 等路由
+        plugin_router = APIRouter()
+        ctx.provide("http_router", plugin_router)
+        logger.info("[Main] Provided http_router to context")
 
-    # 2. 创建 FiberManager
-    fiber_manager = FiberManager(ctx)
+        # 2. 创建 FiberManager
+        fiber_manager = FiberManager(ctx)
 
-    # 3. 注册插件（顺序即依赖顺序）
-    loader = PluginLoader(ctx, fiber_manager)
+        # 3. 注册插件（顺序即依赖顺序）
+        loader = PluginLoader(ctx, fiber_manager)
 
-    # P0 插件
-    loader.register(AuthPlugin)              # 认证（无依赖）
-    loader.register(AuditPlugin)             # 审计（无依赖）
-    loader.register(RetrieverPlugin)         # 检索（依赖 config）
-    loader.register(LLMPlugin)               # LLM（依赖 config）
-    loader.register(KnowledgePlugin)         # 知识库（依赖 retriever）
-    loader.register(ChatPlugin)              # 对话（依赖 llm/knowledge/retriever）
-    loader.register(WeChatChannelPlugin)     # 企业微信（依赖 chat/auth）
-    loader.register(WeChatKFPlugin)          # 微信客服（依赖 chat/auth）
+        # P0 插件
+        loader.register(AuthPlugin)              # 认证（无依赖）
+        loader.register(AuditPlugin)             # 审计（无依赖）
+        loader.register(RetrieverPlugin)         # 检索（依赖 config）
+        loader.register(LLMPlugin)               # LLM（依赖 config）
+        loader.register(KnowledgePlugin)         # 知识库（依赖 retriever）
+        loader.register(ChatPlugin)              # 对话（依赖 llm/knowledge/retriever）
+        loader.register(WeChatChannelPlugin)     # 企业微信（依赖 chat/auth）
+        loader.register(WeChatKFPlugin)          # 微信客服（依赖 chat/auth）
 
-    # P1 插件
-    loader.register(ModelManagerPlugin)      # 模型管理（依赖 config）
-    loader.register(MonitoringPlugin)        # 监控（依赖 config）
-    loader.register(ModelEvolvePlugin)       # 进化引擎（依赖 model/knowledge/llm）
+        # P1 插件
+        loader.register(ModelManagerPlugin)      # 模型管理（依赖 config）
+        loader.register(MonitoringPlugin)        # 监控（依赖 config）
+        loader.register(ModelEvolvePlugin)       # 进化引擎（依赖 model/knowledge/llm）
+        loader.register(EvolutionPlugin)         # 自我进化系统 v1.0（依赖 events）
 
-    # P2 插件（新增）
-    loader.register(EnterpriseAuthPlugin)    # 企业认证 LDAP/OAuth（依赖 auth）
-    loader.register(WhatsAppChannelPlugin)  # WhatsApp（依赖 chat/auth）
+        # P2 插件（新增）
+        loader.register(EnterpriseAuthPlugin)    # 企业认证 LDAP/OAuth（依赖 auth）
+        loader.register(WhatsAppChannelPlugin)  # WhatsApp（依赖 chat/auth）
 
-    loader.load_all()
-    logger.info(f"[Main] Plugins registered: {loader.get_plugin_ids()}")
+        loader.load_all()
+        logger.info(f"[Main] Plugins registered: {loader.get_plugin_ids()}")
 
-    # 4. 启动所有插件
-    await fiber_manager.start_all()
+        # 4. 启动所有插件
+        await fiber_manager.start_all()
 
-    # 4.5 将插件注册的路由挂载到 FastAPI app
-    app.include_router(plugin_router)
-    logger.info("[Main] Plugin routes mounted to app")
-    
-    # 4.6 注册 P1 设置路由（必须在 SPA catch-all 之前注册，否则会被 catch-all 拦截）
-    app.include_router(settings_router.router, prefix="/api", tags=["系统设置"])
-    logger.info("[Main] Settings router mounted to /api")
-    
-    # 4.7 将 SPA catch-all 移到路由列表末尾，确保插件 webhook 路由优先匹配
-    for i, route in enumerate(app.routes):
-        if hasattr(route, 'name') and route.name == 'spa_catch_all':
-            catch_all = app.routes.pop(i)
-            app.routes.append(catch_all)
-            logger.info("[Main] SPA catch-all moved to end of route list")
-            break
-    
-    # 5. 注入到 app state
-    app.state.ctx = ctx
-    app.state.fiber_manager = fiber_manager
+        # 4.5 将插件注册的路由挂载到 FastAPI app
+        app.include_router(plugin_router)
+        logger.info("[Main] Plugin routes mounted to app")
+        
+        # 4.6 注册 P1 设置路由（必须在 SPA catch-all 之前注册，否则会被 catch-all 拦截）
+        app.include_router(settings_router.router, prefix="/api", tags=["系统设置"])
+        logger.info("[Main] Settings router mounted to /api")
 
-    logger.info("=" * 60)
-    logger.info("  EchoServe V0.1.0 — Ready!")
-    logger.info(f"  API: http://{settings.api.host}:{settings.api.port}")
-    logger.info(f"  Docs: http://{settings.api.host}:{settings.api.port}/docs")
-    logger.info(f"  Metrics: http://{settings.api.host}:{settings.api.port}/metrics")
-    logger.info("=" * 60)
+        # 4.7 注册 SPA 静态文件和 catch-all（放在所有 API 路由之后，确保不拦截 API 请求）
+        if WEB_DIST.exists():
+            assets_dir = WEB_DIST / "assets"
+            if assets_dir.exists():
+                app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+            app.mount("/static", StaticFiles(directory=str(WEB_DIST)), name="static")
+
+            @app.get("/{full_path:path}", response_class=FileResponse)
+            async def spa_catch_all(full_path: str):
+                """SPA catch-all: 非 API 路径返回 index.html，支持 BrowserRouter 刷新。"""
+                index_html = WEB_DIST / "index.html"
+                if index_html.exists():
+                    return FileResponse(str(index_html))
+                raise HTTPException(status_code=404, detail="Not Found")
+
+            logger.info(f"[Main] SPA catch-all registered (serving from {WEB_DIST})")
+        else:
+            logger.warning("[Main] web/dist not found - frontend not served")
+
+            @app.get("/")
+            async def root_fallback():
+                return {"detail": "Frontend not built. Run 'cd web && npm run build' first."}
+        
+        # 5. 注入到 app state
+        app.state.ctx = ctx
+        app.state.fiber_manager = fiber_manager
+
+        logger.info("=" * 60)
+        logger.info("  EchoServe V0.2.0 — Ready!")
+        logger.info(f"  API: http://{settings.api.host}:{settings.api.port}")
+        logger.info(f"  Docs: http://{settings.api.host}:{settings.api.port}/docs")
+        logger.info(f"  Metrics: http://{settings.api.host}:{settings.api.port}/metrics")
+        logger.info("=" * 60)
+
+    except Exception as e:
+        startup_failed = True
+        logger.error(f"[Main] Startup failed: {e}", exc_info=True)
+        raise
+
+    finally:
+        if startup_failed and fiber_manager:
+            # 启动失败时尝试清理已启动的插件
+            try:
+                logger.info("[Main] Cleaning up after startup failure...")
+                await fiber_manager.stop_all()
+                await fiber_manager.destroy_all()
+            except Exception as cleanup_err:
+                logger.error(f"[Main] Cleanup after failure also failed: {cleanup_err}")
 
     yield
 
-    # ─── 关闭流程 ────────────────────────────────
+    # ─── 关闭流程 ────────────────────────
     logger.info("[Main] Shutting down...")
-    await fiber_manager.stop_all()
-    await fiber_manager.destroy_all()
+    try:
+        await fiber_manager.stop_all()
+        await fiber_manager.destroy_all()
+    except Exception as e:
+        logger.error(f"[Main] Shutdown error: {e}", exc_info=True)
     logger.info("[Main] Shutdown complete")
 
 
 # ─── FastAPI 应用 ──────────────────────────────────────
 
 app = FastAPI(
-    title="EchoServe V0.1.0",
+    title="EchoServe V0.2.0",
     description="企业级本地知识库问答系统 — P2 完整版（含 WhatsApp + LDAP/OAuth + DPO + 等保合规）",
-    version="0.1.2",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -262,13 +322,13 @@ async def compliance_check_endpoint(user_id: str = Depends(verify_token)):
     触发等保 2.0 三级合规检查。
     返回合规评分和详细结果。
     """
-    import sys
-    from pathlib import Path
-
-    # 动态导入合规检查器
-    sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+    # M-3: 使用 importlib 替代 sys.path.insert
     try:
-        from compliance_check import ComplianceChecker
+        _mod = _load_module_from_path(
+            "compliance_check",
+            Path(__file__).parent.parent / "scripts" / "compliance_check.py",
+        )
+        ComplianceChecker = _mod.ComplianceChecker
 
         checker = ComplianceChecker(
             project_root=str(Path(__file__).parent.parent),
@@ -315,10 +375,12 @@ async def record_feedback(request: dict, user_id: str = Depends(verify_token)):
 
     if store is None:
         # 降级：创建临时实例（无自动触发能力）
-        from pathlib import Path
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent.parent / "plugins" / "evolve"))
-        from dpo_trainer import PreferenceStore
+        # M-3: 使用 importlib 替代 sys.path.insert
+        _dpo_mod = _load_module_from_path(
+            "dpo_trainer",
+            Path(__file__).parent.parent / "plugins" / "evolve" / "dpo_trainer.py",
+        )
+        PreferenceStore = _dpo_mod.PreferenceStore
         store = PreferenceStore(
             store_path=str(Path(__file__).parent.parent / "data" / "training" / "preferences.jsonl")
         )
@@ -349,10 +411,12 @@ async def feedback_stats(user_id: str = Depends(verify_token)):
     store = ctx.inject("preference_store", None) if ctx else None
 
     if store is None:
-        from pathlib import Path
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent.parent / "plugins" / "evolve"))
-        from dpo_trainer import PreferenceStore
+        # M-3: 使用 importlib 替代 sys.path.insert
+        _dpo_mod = _load_module_from_path(
+            "dpo_trainer",
+            Path(__file__).parent.parent / "plugins" / "evolve" / "dpo_trainer.py",
+        )
+        PreferenceStore = _dpo_mod.PreferenceStore
         store = PreferenceStore(
             store_path=str(Path(__file__).parent.parent / "data" / "training" / "preferences.jsonl")
         )
@@ -374,15 +438,16 @@ async def build_dpo_dataset(request: dict = None, user_id: str = Depends(verify_
     store = ctx.inject("preference_store", None) if ctx else None
 
     if store is None:
-        from pathlib import Path
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent.parent / "plugins" / "evolve"))
-        from dpo_trainer import PreferenceStore
+        # M-3: 使用 importlib 替代 sys.path.insert
+        _dpo_mod = _load_module_from_path(
+            "dpo_trainer",
+            Path(__file__).parent.parent / "plugins" / "evolve" / "dpo_trainer.py",
+        )
+        PreferenceStore = _dpo_mod.PreferenceStore
         store = PreferenceStore(
             store_path=str(Path(__file__).parent.parent / "data" / "training" / "preferences.jsonl")
         )
 
-    from pathlib import Path
     output_path = str(Path(__file__).parent.parent / "data" / "training" / "dpo_dataset.jsonl")
     try:
         result = store.build_dpo_dataset(output_path=output_path)
@@ -397,12 +462,13 @@ async def trigger_dpo_train(request: dict = None, user_id: str = Depends(verify_
     触发 DPO 训练。
     生成训练脚本并返回执行命令。
     """
-    from pathlib import Path
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).parent.parent / "plugins" / "evolve"))
+    # M-3: 使用 importlib 替代 sys.path.insert
     try:
-        from dpo_trainer import DPOTrainer
+        _dpo_mod = _load_module_from_path(
+            "dpo_trainer",
+            Path(__file__).parent.parent / "plugins" / "evolve" / "dpo_trainer.py",
+        )
+        DPOTrainer = _dpo_mod.DPOTrainer
 
         base_model = (request or {}).get("base_model", "./models/qwen3-14b-q4")
         output_dir = (request or {}).get(
@@ -430,12 +496,13 @@ async def build_windows_installer(request: dict = None, user_id: str = Depends(v
     生成 Windows 安装包构建文件。
     返回 Inno Setup 脚本、启动脚本等文件路径。
     """
-    from pathlib import Path
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+    # M-3: 使用 importlib 替代 sys.path.insert
     try:
-        from build_windows_installer import WindowsInstallerBuilder
+        _mod = _load_module_from_path(
+            "build_windows_installer",
+            Path(__file__).parent.parent / "scripts" / "build_windows_installer.py",
+        )
+        WindowsInstallerBuilder = _mod.WindowsInstallerBuilder
 
         params = request or {}
         builder = WindowsInstallerBuilder(
@@ -451,43 +518,6 @@ async def build_windows_installer(request: dict = None, user_id: str = Depends(v
 
 
 # ─── 前端静态资源 ──────────────────────────────────────
-
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-
-WEB_DIST = Path(__file__).parent.parent / "web" / "dist"
-
-if WEB_DIST.exists():
-    # Mount assets directory for static resources (JS, CSS, images)
-    assets_dir = WEB_DIST / "assets"
-    if assets_dir.exists():
-        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
-    
-    # Mount other static files (favicon.ico, logo.jpg, etc.)
-    app.mount("/static", StaticFiles(directory=str(WEB_DIST)), name="static")
-    
-    # SPA catch-all: return index.html for all non-API paths
-    # This enables BrowserRouter to work on page refresh
-    @app.get("/{full_path:path}", response_class=FileResponse)
-    async def spa_catch_all(full_path: str):
-        """
-        SPA catch-all route.
-        Returns index.html for all non-API paths so that BrowserRouter works on refresh.
-        API routes (/api/*, /docs, /openapi.json, /metrics) are registered before
-        this catch-all and have higher priority due to exact path matching.
-        """
-        index_html = WEB_DIST / "index.html"
-        if index_html.exists():
-            return FileResponse(str(index_html))
-        raise HTTPException(status_code=404, detail="Not Found")
-    
-    logger.info(f"[Main] Serving static files from {WEB_DIST}")
-else:
-    logger.warning("[Main] web/dist not found - frontend not served")
-    
-    @app.get("/")
-    async def root_fallback():
-        return {"detail": "Frontend not built. Run 'cd web && npm run build' first."}
 
 # ─── 入口 ──────────────────────────────────────
 

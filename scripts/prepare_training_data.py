@@ -4,7 +4,7 @@ EchoServe - Training Data Preparation Script
 Convert knowledge base (documents.jsonl) to LoRA training dataset.
 
 Usage:
-    cd /d/llm_learn/OmniZee-B/OmniZee
+    cd /d/llm_learn/OmniZee-B/EchoServe
     python scripts/prepare_training_data.py
 
 Output:
@@ -19,7 +19,7 @@ import json
 import re
 import random
 from pathlib import Path
-from typing import List, Dict, Any
+
 import logging
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
@@ -52,7 +52,7 @@ GENERIC_DATA = [
 ]
 
 
-def load_kb(path: Path) -> List[Dict[str, str]]:
+def load_kb(path: Path) -> list[dict[str, str]]:
     """从知识库加载 QA 对"""
     qa_pairs = []
 
@@ -99,7 +99,7 @@ def load_kb(path: Path) -> List[Dict[str, str]]:
     return qa_pairs
 
 
-def generate_variants(question: str, n: int = 3) -> List[str]:
+def generate_variants(question: str, n: int = 3) -> list[str]:
     """Generate synonym variants using simple templates (no LLM needed)"""
     if n <= 0:
         return []
@@ -125,7 +125,7 @@ def generate_variants(question: str, n: int = 3) -> List[str]:
     return variants
 
 
-def to_alpaca(instruction: str, question: str, answer: str) -> Dict[str, str]:
+def to_alpaca(instruction: str, question: str, answer: str) -> dict[str, str]:
     """Convert to Alpaca training format"""
     return {
         "instruction": instruction.strip(),
@@ -134,7 +134,7 @@ def to_alpaca(instruction: str, question: str, answer: str) -> Dict[str, str]:
     }
 
 
-def build_dataset(qa_pairs: List[Dict[str, str]]) -> List[Dict[str, str]]:
+def build_dataset(qa_pairs: list[dict[str, str]]) -> list[dict[str, str]]:
     """Build full training dataset with variants"""
     logger.info("Building training dataset...")
     dataset = []
@@ -166,7 +166,7 @@ def build_dataset(qa_pairs: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return dataset
 
 
-def split_dataset(dataset: List[Dict[str, str]], ratio: float = 0.8):
+def split_dataset(dataset: list[dict[str, str]], ratio: float = 0.8):
     """Split into train/test"""
     split_idx = int(len(dataset) * ratio)
     train = dataset[:split_idx]
@@ -174,7 +174,7 @@ def split_dataset(dataset: List[Dict[str, str]], ratio: float = 0.8):
     return train, test
 
 
-def save_jsonl(data: List[Dict], path: Path):
+def save_jsonl(data: list[Dict], path: Path):
     """Save as JSONL"""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -183,7 +183,7 @@ def save_jsonl(data: List[Dict], path: Path):
     logger.info(f"  Saved: {path} ({len(data)} records)")
 
 
-def validate_dataset(path: Path) -> Dict[str, Any]:
+def validate_dataset(path: Path) -> dict[str, Any]:
     """Validate dataset quality"""
     total = 0
     valid = 0

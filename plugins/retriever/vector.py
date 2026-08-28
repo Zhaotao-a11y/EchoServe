@@ -13,25 +13,25 @@ EchoServe V0.1.0 — 向量检索
 from __future__ import annotations
 
 import logging
-from typing import List, Dict, Any
+from typing import Any
 import numpy as np
 
-logger = logging.getLogger("echoseve.retriever.vector")
+logger = logging.getLogger("echoserve.retriever.vector")
 
 # 延迟导入，避免启动时必须安装
 try:
     import chromadb
     HAS_CHROMA = True
-except ImportError:
+except Exception:
     HAS_CHROMA = False
-    logger.warning("[Vector] chromadb not installed, run: pip install chromadb")
+    logger.warning("[Vector] chromadb not available, run: pip install chromadb")
 
 try:
     from sentence_transformers import SentenceTransformer
     HAS_ST = True
-except ImportError:
+except Exception:
     HAS_ST = False
-    logger.warning("[Vector] sentence-transformers not installed")
+    logger.warning("[Vector] sentence-transformers not available (torch DLL issue?)")
 
 
 class VectorRetriever:
@@ -60,6 +60,7 @@ class VectorRetriever:
         self._collection = None
         self._embedder = None
         self._batch_size = 64
+        self._init_failed = False  # 初始化失败标记，避免每次 search 都重试连接超时
 
     async def initialize(self):
         """初始化 Chroma 客户端和嵌入模型"""
@@ -68,14 +69,25 @@ class VectorRetriever:
             self._collection = None
             return
 
+        # 如果之前初始化失败，不再重试（避免每次 search 都等待连接超时）
+        if self._init_failed:
+            return
+
         # 初始化 Chroma 客户端
         # 支持 HTTP 远程模式和本地持久化模式
-        if self.host.startswith("http"):
-            self._client = chromadb.HttpClient(host=self._extract_host(), port=self._extract_port())
-            logger.info(f"[Vector] Connected to Chroma server at {self.host}")
-        else:
-            self._client = chromadb.PersistentClient(path=self.persist_dir)
-            logger.info(f"[Vector] Chroma persistent client at {self.persist_dir}")
+        try:
+            if self.host.startswith("http"):
+                self._client = chromadb.HttpClient(host=self._extract_host(), port=self._extract_port())
+                logger.info(f"[Vector] Connected to Chroma server at {self.host}")
+            else:
+                self._client = chromadb.PersistentClient(path=self.persist_dir)
+                logger.info(f"[Vector] Chroma persistent client at {self.persist_dir}")
+        except Exception as e:
+            logger.warning(f"[Vector] ChromaDB unavailable ({e}), running in fallback mode (BM25 only)")
+            self._client = None
+            self._collection = None
+            self._init_failed = True  # 标记初始化失败，后续不再重试
+            return
 
         # 获取或创建 collection
         try:
@@ -125,7 +137,7 @@ class VectorRetriever:
         match = re.search(r':(\d+)', self.host)
         return int(match.group(1)) if match else 8000
 
-    async def _embed(self, texts: List[str]) -> np.ndarray:
+    async def _embed(self, texts: list[str]) -> np.ndarray:
         """批量生成嵌入向量"""
         import asyncio
         loop = asyncio.get_event_loop()
@@ -140,7 +152,7 @@ class VectorRetriever:
         )
         return np.array(embeddings)
 
-    async def add_documents(self, documents: List[Dict[str, Any]]):
+    async def add_documents(self, documents: list[dict[str, Any]]):
         """批量添加文档到向量库"""
         if not HAS_CHROMA:
             return  # Fallback 模式，跳过向量索引
@@ -175,7 +187,7 @@ class VectorRetriever:
 
         logger.info(f"[Vector] Total indexed: {self._collection.count()} documents")
 
-    async def search(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
+    async def search(self, query: str, k: int = 10) -> list[dict[str, Any]]:
         """
         语义向量检索。
 
@@ -185,7 +197,7 @@ class VectorRetriever:
         """
         if not self._collection:
             # Fallback 模式或尚未初始化
-            if not HAS_CHROMA:
+            if not HAS_CHROMA or self._init_failed:
                 return []
             await self.initialize()
             if not self._collection:

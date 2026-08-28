@@ -11,10 +11,10 @@ import re
 import json
 import hashlib
 import logging
-from typing import List, Dict, Any
+from typing import Any
 from pathlib import Path
 
-logger = logging.getLogger("echoseve.knowledge.parser")
+logger = logging.getLogger("echoserve.knowledge.parser")
 
 # ─── 切片配置 ─────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ def chunk_text(
     text: str,
     chunk_tokens: int = DEFAULT_CHUNK_TOKENS,
     overlap_tokens: int = DEFAULT_CHUNK_OVERLAP,
-) -> List[str]:
+) -> list[str]:
     """
     将文本按 token 数智能切片。
     优先按段落/句子切分，避免切断语义。
@@ -97,7 +97,7 @@ def chunk_text(
     return _merge_small_chunks(chunks)
 
 
-def _split_sentences(text: str) -> List[str]:
+def _split_sentences(text: str) -> list[str]:
     """按句子切分（支持中英文标点）"""
     # 中文句子结束符：。！？；
     # 英文句子结束符：. ! ? ;
@@ -115,7 +115,7 @@ def _get_overlap(text: str, overlap_tokens: int) -> str:
     return text[-overlap_chars:]
 
 
-def _merge_small_chunks(chunks: List[str]) -> List[str]:
+def _merge_small_chunks(chunks: list[str]) -> list[str]:
     """合并过小的块"""
     if not chunks:
         return chunks
@@ -159,13 +159,13 @@ def parse_markdown(file_path: str) -> str:
     return _read_text_file(file_path)
 
 
-def parse_markdown_table(file_path: str) -> List[Dict[str, Any]]:
+def parse_markdown_table(file_path: str) -> list[dict[str, Any]]:
     """
     解析 Markdown 表格文件，提取结构化问答数据。
     
     自动检测文件编码（UTF-8 / GBK / GB2312）。
     识别标志：包含 | 分隔的表格头，且有 query + expected_reply 列。
-    返回：List[{"content": str, "metadata": dict}]
+    返回：list[{"content": str, "metadata": dict}]
     
     支持文件中有多个表格，会合并所有匹配的数据。
     适用场景：客服问答模板、FAQ 清单等结构化 .md 表格。
@@ -336,12 +336,12 @@ def parse_docx(file_path: str) -> str:
         raise
 
 
-def parse_file(file_path: str) -> Dict[str, Any]:
+def parse_file(file_path: str) -> dict[str, Any]:
     """
     通用文档解析入口。
     
     返回：{
-        "chunks": List[str],       # 切片列表
+        "chunks": list[str],       # 切片列表
         "metadata": {              # 文件元数据
             "filetype": str,
             "size": int,

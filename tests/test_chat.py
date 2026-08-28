@@ -11,8 +11,7 @@ import sys
 import pytest
 from pathlib import Path
 
-# 添加项目根目录到 path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# sys.path 由根目录 conftest.py 统一管理，此处不再重复设置
 
 from plugins.retriever.rrf import rrf_fuse, rrf_fuse_multi
 from plugins.retriever.bm25 import BM25Retriever

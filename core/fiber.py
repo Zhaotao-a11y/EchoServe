@@ -16,11 +16,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from enum import Enum
-from typing import Dict, List, Optional
 
 # 延迟导入，避免循环依赖
 # BaizeContext 和 BaizePlugin 在类型注解中以字符串形式引用
-logger = logging.getLogger("echoseve.fiber")
+logger = logging.getLogger("echoserve.fiber")
 
 
 class FiberState(Enum):
@@ -44,15 +43,15 @@ class Fiber:
         self.plugin = plugin
         self.ctx = ctx
         self.state = FiberState.UNLOADED
-        self.error: Optional[Exception] = None
-        self._tasks: List[asyncio.Task] = []
+        self.error: (Exception | None) = None
+        self._tasks: list[asyncio.Task] = []
 
     async def load(self):
-        """加载插件（注册到 Context）"""
+        """加载插件（调用 on_load 钩子，注册服务到 Context）"""
         if self.state != FiberState.UNLOADED:
             return
         try:
-            self.plugin._ctx = self.ctx
+            await self.plugin._load(self.ctx, self)
             self.state = FiberState.LOADED
             logger.info(f"[Fiber] Loaded: {self.plugin.plugin_id}")
         except Exception as e:
@@ -106,6 +105,9 @@ class Fiber:
 
     async def destroy(self):
         """销毁插件，释放资源"""
+        if self.state == FiberState.DESTROYED:
+            logger.warning(f"[Fiber] Already destroyed: {self.plugin.plugin_id}")
+            return
         try:
             await self.plugin._destroy(self.ctx, self)
             self.state = FiberState.DESTROYED
@@ -142,8 +144,8 @@ class FiberManager:
 
     def __init__(self, ctx):  # ctx: BaizeContext 延迟引用
         self.ctx = ctx
-        self._fibers: Dict[str, Fiber] = {}
-        self._dependency_graph: Dict[str, List[str]] = {}
+        self._fibers: dict[str, Fiber] = {}
+        self._dependency_graph: dict[str, list[str]] = {}
 
     def register(self, plugin: BaizePlugin) -> Fiber:
         """注册一个插件，创建对应的 Fiber"""
@@ -154,13 +156,13 @@ class FiberManager:
                     f"(deps: {plugin.dependencies})")
         return fiber
 
-    def _resolve_order(self) -> List[str]:
+    def _resolve_order(self) -> list[str]:
         """
         拓扑排序，按依赖顺序返回插件 ID 列表。
         使用 Kahn 算法检测循环依赖。
         """
-        in_degree: Dict[str, int] = {pid: 0 for pid in self._fibers}
-        graph: Dict[str, List[str]] = {pid: [] for pid in self._fibers}
+        in_degree: dict[str, int] = {pid: 0 for pid in self._fibers}
+        graph: dict[str, list[str]] = {pid: [] for pid in self._fibers}
 
         for pid, deps in self._dependency_graph.items():
             for dep in deps:
@@ -218,10 +220,10 @@ class FiberManager:
         self.ctx.destroy()
         logger.info("[FiberManager] All plugins destroyed")
 
-    def get_fiber(self, plugin_id: str) -> Optional[Fiber]:
+    def get_fiber(self, plugin_id: str) -> (Fiber | None):
         return self._fibers.get(plugin_id)
 
-    def health_check(self) -> Dict[str, str]:
+    def health_check(self) -> dict[str, str]:
         """返回所有插件的健康状态"""
         return {
             pid: fiber.state.value

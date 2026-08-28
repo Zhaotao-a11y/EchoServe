@@ -19,7 +19,7 @@ import json
 import logging
 import uuid
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any
 
 # 将项目根目录加入 path
 import sys
@@ -33,10 +33,10 @@ from core.plugin_loader import PluginLoader
 from plugins.retriever.plugin import RetrieverPlugin
 from plugins.knowledge.plugin import KnowledgePlugin
 
-logger = logging.getLogger("echoseve.ingest")
+logger = logging.getLogger("echoserve.ingest")
 
 
-async def load_documents(file_path: Path) -> List[Dict[str, Any]]:
+async def load_documents(file_path: Path) -> list[dict[str, Any]]:
     """从 JSONL 文件加载文档"""
     documents = []
     with open(file_path, "r", encoding="utf-8") as f:
@@ -60,7 +60,7 @@ async def load_documents(file_path: Path) -> List[Dict[str, Any]]:
     return documents
 
 
-async def load_directory(dir_path: Path, category: str = "") -> List[Dict[str, Any]]:
+async def load_directory(dir_path: Path, category: str = "") -> list[dict[str, Any]]:
     """从目录加载所有 .txt 文件"""
     documents = []
     for txt_file in sorted(dir_path.glob("*.txt")):

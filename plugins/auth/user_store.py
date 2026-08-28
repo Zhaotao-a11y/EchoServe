@@ -18,24 +18,24 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any
 
-logger = logging.getLogger("echoseve.auth.user_store")
+logger = logging.getLogger("echoserve.auth.user_store")
 
 
 class UserStore:
     """用户 / API Key 存储抽象基类"""
 
-    async def load_users(self) -> Dict[str, Dict[str, Any]]:
+    async def load_users(self) -> dict[str, dict[str, Any]]:
         raise NotImplementedError
 
-    async def save_users(self, users: Dict[str, Dict[str, Any]]) -> None:
+    async def save_users(self, users: dict[str, dict[str, Any]]) -> None:
         raise NotImplementedError
 
-    async def load_api_keys(self) -> Dict[str, Dict[str, Any]]:
+    async def load_api_keys(self) -> dict[str, dict[str, Any]]:
         raise NotImplementedError
 
-    async def save_api_keys(self, api_keys: Dict[str, Dict[str, Any]]) -> None:
+    async def save_api_keys(self, api_keys: dict[str, dict[str, Any]]) -> None:
         raise NotImplementedError
 
     async def close(self) -> None:
@@ -51,7 +51,7 @@ class JSONUserStore(UserStore):
         self._storage_path = storage_path
         self._api_key_path = api_key_path
 
-    async def load_users(self) -> Dict[str, Dict[str, Any]]:
+    async def load_users(self) -> dict[str, dict[str, Any]]:
         if not self._storage_path or not self._storage_path.exists():
             return {}
         try:
@@ -66,7 +66,7 @@ class JSONUserStore(UserStore):
             logger.error(f"[JSONStore] Failed to load users: {e}")
             return {}
 
-    async def save_users(self, users: Dict[str, Dict[str, Any]]) -> None:
+    async def save_users(self, users: dict[str, dict[str, Any]]) -> None:
         if not self._storage_path:
             return
         data = {"users": list(users.values())}
@@ -78,7 +78,7 @@ class JSONUserStore(UserStore):
         except OSError:
             pass  # Windows 上 chmod 行为不同，忽略
 
-    async def load_api_keys(self) -> Dict[str, Dict[str, Any]]:
+    async def load_api_keys(self) -> dict[str, dict[str, Any]]:
         if not self._api_key_path or not self._api_key_path.exists():
             return {}
         try:
@@ -93,7 +93,7 @@ class JSONUserStore(UserStore):
             logger.error(f"[JSONStore] Failed to load API keys: {e}")
             return {}
 
-    async def save_api_keys(self, api_keys: Dict[str, Dict[str, Any]]) -> None:
+    async def save_api_keys(self, api_keys: dict[str, dict[str, Any]]) -> None:
         if not self._api_key_path:
             return
         data = {"api_keys": list(api_keys.values())}
@@ -212,7 +212,7 @@ class PostgresUserStore(UserStore):
     def is_connected(self) -> bool:
         return self._connected
 
-    async def load_users(self) -> Dict[str, Dict[str, Any]]:
+    async def load_users(self) -> dict[str, dict[str, Any]]:
         if not await self._connect():
             raise RuntimeError("PostgreSQL not connected")
         async with self._pool.acquire() as conn:
@@ -235,7 +235,7 @@ class PostgresUserStore(UserStore):
         logger.info(f"[PGStore] Loaded {len(users)} users")
         return users
 
-    async def save_users(self, users: Dict[str, Dict[str, Any]]) -> None:
+    async def save_users(self, users: dict[str, dict[str, Any]]) -> None:
         if not await self._connect():
             raise RuntimeError("PostgreSQL not connected")
         async with self._pool.acquire() as conn:
@@ -266,7 +266,7 @@ class PostgresUserStore(UserStore):
                     u.get("enabled", True),
                 )
 
-    async def load_api_keys(self) -> Dict[str, Dict[str, Any]]:
+    async def load_api_keys(self) -> dict[str, dict[str, Any]]:
         if not await self._connect():
             raise RuntimeError("PostgreSQL not connected")
         async with self._pool.acquire() as conn:
@@ -289,7 +289,7 @@ class PostgresUserStore(UserStore):
         logger.info(f"[PGStore] Loaded {len(api_keys)} API keys")
         return api_keys
 
-    async def save_api_keys(self, api_keys: Dict[str, Dict[str, Any]]) -> None:
+    async def save_api_keys(self, api_keys: dict[str, dict[str, Any]]) -> None:
         if not await self._connect():
             raise RuntimeError("PostgreSQL not connected")
         async with self._pool.acquire() as conn:
@@ -328,9 +328,9 @@ class PostgresUserStore(UserStore):
 
 
 def create_user_store(
-    pg_config: Optional[Dict[str, Any]] = None,
-    storage_path: Optional[Path] = None,
-    api_key_path: Optional[Path] = None,
+    pg_config: (dict[str, Any] | None) = None,
+    storage_path: (Path | None) = None,
+    api_key_path: (Path | None) = None,
 ) -> UserStore:
     """
     工厂方法：优先创建 PG 存储实例（不连接），运行时自动降级到 JSON。

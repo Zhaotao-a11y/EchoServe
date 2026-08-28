@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import List, Dict, Any, Optional, AsyncIterator
+from typing import Any, AsyncIterator
 from core.plugin import BaizePlugin
 from core.context import BaizeContext
 from core.fiber import Fiber
@@ -23,7 +23,7 @@ from .client import VLLMClient
 from .ollama_client import OllamaClient
 from .prompts.customer_service import build_system_prompt, apply_qwen3_thinking
 
-logger = logging.getLogger("echoseve.llm")
+logger = logging.getLogger("echoserve.llm")
 
 
 class LLMPlugin(BaizePlugin):
@@ -135,7 +135,7 @@ class LLMPlugin(BaizePlugin):
         self.system_prompt = prompt
         logger.info(f"[{self.plugin_id}] System prompt updated ({len(prompt)} chars)")
 
-    def update_system_prompt_with_context(self, retrieved_docs: List[Dict[str, Any]]):
+    def update_system_prompt_with_context(self, retrieved_docs: list[dict[str, Any]]):
         """
         [DEPRECATED] 将检索到的知识库内容注入系统提示词（RAG 核心步骤）。
 
@@ -151,7 +151,7 @@ class LLMPlugin(BaizePlugin):
         self.system_prompt = self._build_system_prompt_with_context(retrieved_docs)
 
     @staticmethod
-    def _build_system_prompt_with_context(retrieved_docs: List[Dict[str, Any]]) -> str:
+    def _build_system_prompt_with_context(retrieved_docs: list[dict[str, Any]]) -> str:
         """
         根据检索到的文档构建带知识库上下文的系统提示词（纯函数，不修改共享状态）。
 
@@ -187,10 +187,10 @@ class LLMPlugin(BaizePlugin):
 
     async def chat_with_context(
         self,
-        messages: List[Dict[str, str]],
-        retrieved_docs: List[Dict[str, Any]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[dict[str, str]],
+        retrieved_docs: list[dict[str, Any]],
+        temperature: (float | None) = None,
+        max_tokens: (int | None) = None,
         thinking_mode: bool = False,
         fast_mode: bool = False,
     ) -> str:
@@ -243,10 +243,10 @@ class LLMPlugin(BaizePlugin):
 
     async def chat_stream_with_context(
         self,
-        messages: List[Dict[str, str]],
-        retrieved_docs: List[Dict[str, Any]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[dict[str, str]],
+        retrieved_docs: list[dict[str, Any]],
+        temperature: (float | None) = None,
+        max_tokens: (int | None) = None,
     ) -> AsyncIterator[str]:
         """
         带知识库上下文的流式对话（线程安全，不修改共享状态）。
@@ -276,9 +276,9 @@ class LLMPlugin(BaizePlugin):
 
     async def chat(
         self,
-        messages: List[Dict[str, str]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[dict[str, str]],
+        temperature: (float | None) = None,
+        max_tokens: (int | None) = None,
     ) -> str:
         """
         非流式对话。
@@ -318,9 +318,9 @@ class LLMPlugin(BaizePlugin):
 
     async def chat_stream(
         self,
-        messages: List[Dict[str, str]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[dict[str, str]],
+        temperature: (float | None) = None,
+        max_tokens: (int | None) = None,
     ) -> AsyncIterator[str]:
         """
         流式对话（逐 token 输出）。
@@ -346,7 +346,7 @@ class LLMPlugin(BaizePlugin):
         """最简对话接口（单轮）"""
         return await self.chat([{"role": "user", "content": user_message}])
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """检查 LLM 服务健康状态"""
         return {
             "plugin": self.plugin_id,

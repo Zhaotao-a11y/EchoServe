@@ -13,7 +13,7 @@ import logging
 import time
 import json
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
 
 from core.plugin import BaizePlugin
 from core.context import BaizeContext
@@ -21,7 +21,7 @@ from core.fiber import Fiber
 
 from .vllm_client import VLLMClient
 
-logger = logging.getLogger("echoseve.model.manager")
+logger = logging.getLogger("echoserve.model.manager")
 
 
 class ModelManagerPlugin(BaizePlugin):
@@ -45,13 +45,13 @@ class ModelManagerPlugin(BaizePlugin):
     dependencies = ["core.config"]
 
     def __init__(self):
-        self.ctx: Optional[BaizeContext] = None
-        self.vllm: Optional[VLLMClient] = None
+        self.ctx: (BaizeContext | None) = None
+        self.vllm: (VLLMClient | None) = None
         self.models_dir: str = "./models"
         self.adapters_dir: str = "./models/adapters"
-        self._models_registry: Dict[str, Dict[str, Any]] = {}
-        self._current_model_id: Optional[str] = None
-        self._load_history: List[Dict[str, Any]] = []
+        self._models_registry: dict[str, dict[str, Any]] = {}
+        self._current_model_id: (str | None) = None
+        self._load_history: list[dict[str, Any]] = []
 
     # ─── 生命周期 ──────────────────────────────────
 
@@ -147,8 +147,8 @@ class ModelManagerPlugin(BaizePlugin):
     async def switch_model(
         self,
         model_id: str,
-        use_lora: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        use_lora: (str | None) = None,
+    ) -> dict[str, Any]:
         """
         切换当前模型（热切换，无需重启）。
 
@@ -212,7 +212,7 @@ class ModelManagerPlugin(BaizePlugin):
                 "instruction": result.get("instruction", ""),
             }
 
-    def load_adapter(self, adapter_name: str) -> Dict[str, Any]:
+    def load_adapter(self, adapter_name: str) -> dict[str, Any]:
         """
         加载 LoRA adapter 到当前模型。
         """
@@ -228,20 +228,20 @@ class ModelManagerPlugin(BaizePlugin):
             adapter_name=adapter_name,
         )
 
-    def unload_adapter(self, adapter_name: str) -> Dict[str, Any]:
+    def unload_adapter(self, adapter_name: str) -> dict[str, Any]:
         """卸载 LoRA adapter"""
         return self.vllm.unload_lora_adapter(adapter_name)
 
     # ─── 状态查询 ──────────────────────────────────
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """列出所有可用模型"""
         return [
             {"id": name, **info}
             for name, info in self._models_registry.items()
         ]
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """获取模型管理完整状态"""
         vllm_info = self.vllm.get_server_info() if self.vllm else {}
 
@@ -253,7 +253,7 @@ class ModelManagerPlugin(BaizePlugin):
             "adapters_loaded": self.vllm.list_lora_adapters() if self.vllm else [],
         }
 
-    async def aget_status(self) -> Dict[str, Any]:
+    async def aget_status(self) -> dict[str, Any]:
         """异步获取状态（含健康检查）"""
         status = self.get_status()
         if self.vllm:
@@ -265,9 +265,9 @@ class ModelManagerPlugin(BaizePlugin):
 
     async def chat(
         self,
-        messages: List[Dict[str, str]],
-        model_id: Optional[str] = None,
-        lora_name: Optional[str] = None,
+        messages: list[dict[str, str]],
+        model_id: (str | None) = None,
+        lora_name: (str | None) = None,
         **kwargs,
     ) -> str:
         """代理到 vLLM 推理"""
@@ -281,9 +281,9 @@ class ModelManagerPlugin(BaizePlugin):
 
     async def chat_stream(
         self,
-        messages: List[Dict[str, str]],
-        model_id: Optional[str] = None,
-        lora_name: Optional[str] = None,
+        messages: list[dict[str, str]],
+        model_id: (str | None) = None,
+        lora_name: (str | None) = None,
         **kwargs,
     ):
         """代理到 vLLM 流式推理"""
@@ -298,7 +298,7 @@ class ModelManagerPlugin(BaizePlugin):
 
     # ─── 内部方法 ──────────────────────────────────
 
-    def _notify_switch(self, model_id: str, lora: Optional[str]):
+    def _notify_switch(self, model_id: str, lora: (str | None)):
         """记录模型切换通知"""
         msg = f"模型已切换至: {model_id}"
         if lora:

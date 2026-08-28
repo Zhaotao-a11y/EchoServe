@@ -34,7 +34,7 @@ function LoginPage() {
           </div>
           <h1 class="text-2xl font-bold text-gray-900">EchoServe</h1>
           <p class="text-sm text-gray-500 mt-1">企业级本地知识库问答系统</p>
-          <span class="inline-block mt-2 px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded">V0.1.0</span>
+          <span class="inline-block mt-2 px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded">V0.2.0</span>
         </div>
 
         {/* 登录表单 */}

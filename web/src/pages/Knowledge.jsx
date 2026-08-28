@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useStore } from '../store'
+import { useStore, apiCall } from '../store'
 
 function KnowledgePage() {
   const documents = useStore(s => s.documents)
@@ -316,11 +316,8 @@ function RetrievalTester() {
     if (!query.trim()) return
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const resp = await fetch(`/api/knowledge/test?query=${encodeURIComponent(query)}&top_k=5`, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      })
-      const data = await resp.json()
+      // M-12: 使用 apiCall 替代直接 fetch + localStorage
+      const data = await apiCall(`/knowledge/test?query=${encodeURIComponent(query)}&top_k=5`)
       setResults(data)
     } catch (e) {
       setResults({ error: e.message })

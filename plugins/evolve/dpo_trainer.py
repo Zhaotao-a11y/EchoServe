@@ -21,10 +21,10 @@ import time
 import logging
 import uuid
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple, Callable
+from typing import Any, Callable
 from datetime import datetime
 
-logger = logging.getLogger("echoseve.evolve.dpo")
+logger = logging.getLogger("echoserve.evolve.dpo")
 
 
 class PreferenceStore:
@@ -43,11 +43,11 @@ class PreferenceStore:
         self,
         store_path: str = "./data/training/preferences.jsonl",
         auto_trigger_threshold: int = 50,
-        on_auto_trigger: Optional[Callable[[Dict[str, Any]], None]] = None,
+        on_auto_trigger: (Callable[[dict[str, Any]], None] | None) = None,
     ):
         self.store_path = Path(store_path)
         self.store_path.parent.mkdir(parents=True, exist_ok=True)
-        self._preferences: List[Dict[str, Any]] = []
+        self._preferences: list[dict[str, Any]] = []
         self._auto_trigger_threshold = auto_trigger_threshold
         self._on_auto_trigger = on_auto_trigger
         self._auto_triggered_count: int = 0  # 上次触发时的反馈总数
@@ -69,7 +69,7 @@ class PreferenceStore:
         except Exception as e:
             logger.error(f"[PreferenceStore] 加载失败: {e}")
 
-    def _append(self, record: Dict[str, Any]):
+    def _append(self, record: dict[str, Any]):
         """Append a record to the JSONL file (thread-safe)."""
         with self._lock:
             with open(self.store_path, "a", encoding="utf-8") as f:
@@ -83,8 +83,8 @@ class PreferenceStore:
         response: str,
         feedback_type: str,  # "like" | "dislike" | "edit"
         user_id: str = "anonymous",
-        edited_response: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        edited_response: (str | None) = None,
+        metadata: (dict[str, Any] | None) = None,
     ) -> str:
         """
         记录一条用户反馈。
@@ -190,7 +190,7 @@ class PreferenceStore:
         self,
         output_path: str = "./data/training/dpo_dataset.jsonl",
         min_likes: int = 3,  # 至少 3 个 like 才认为 chosen 可靠
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         将偏好数据构建为 DPO 训练数据集。
 
@@ -207,7 +207,7 @@ class PreferenceStore:
         output.parent.mkdir(parents=True, exist_ok=True)
 
         # 按 prompt 分组
-        prompt_groups: Dict[str, List[Dict]] = {}
+        prompt_groups: dict[str, list[Dict]] = {}
         for pref in self._preferences:
             p = pref["prompt"]
             if p not in prompt_groups:
@@ -268,7 +268,7 @@ class PreferenceStore:
             "stats": stats,
         }
 
-    def _most_common(self, items: List[str]) -> str:
+    def _most_common(self, items: list[str]) -> str:
         """返回列表中出现次数最多的元素"""
         from collections import Counter
         counter = Counter(items)
@@ -276,7 +276,7 @@ class PreferenceStore:
 
     # ─── 查询接口 ──────────────────────────────────────
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """返回偏好数据统计"""
         total = len(self._preferences)
         by_type = {"like": 0, "dislike": 0, "edit": 0}
@@ -300,7 +300,7 @@ class PreferenceStore:
             ),
         }
 
-    def list_recent(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def list_recent(self, limit: int = 20) -> list[dict[str, Any]]:
         """返回最近的偏好记录"""
         recent = self._preferences[-limit:]
         return [
@@ -364,11 +364,11 @@ class DPOTrainer:
 
         # 训练状态
         self.training_status: str = "idle"
-        self.last_result: Optional[Dict[str, Any]] = None
+        self.last_result: (dict[str, Any] | None) = None
 
     # ─── 主入口 ────────────────────────────────────────
 
-    def train(self) -> Dict[str, Any]:
+    def train(self) -> dict[str, Any]:
         """
         执行 DPO 训练。
 
@@ -475,7 +475,7 @@ class DPOTrainer:
 
     # ─── TRL 真实训练 ───────────────────────────────────
 
-    def _train_with_trl(self, pair_count: int) -> Tuple[float, float]:
+    def _train_with_trl(self, pair_count: int) -> tuple[float, float]:
         """
         使用 HuggingFace TRL 库执行真实 DPO 训练。
 
@@ -721,7 +721,7 @@ if __name__ == "__main__":
 
     # ─── 训练模拟 ──────────────────────────────────────
 
-    def _simulate_dpo_training(self, pair_count: int) -> Tuple[float, float]:
+    def _simulate_dpo_training(self, pair_count: int) -> tuple[float, float]:
         """
         模拟 DPO 训练过程。
 
@@ -762,8 +762,8 @@ if __name__ == "__main__":
     # ─── 辅助方法 ──────────────────────────────────────
 
     def _result(
-        self, status: str, reason: str, start_time: Optional[float] = None
-    ) -> Dict[str, Any]:
+        self, status: str, reason: str, start_time: (float | None) = None
+    ) -> dict[str, Any]:
         """构造结果字典"""
         elapsed = 0.0
         if start_time is not None:
@@ -774,7 +774,7 @@ if __name__ == "__main__":
             "training_time_minutes": elapsed,
         }
 
-    def get_adapter_info(self) -> Optional[Dict[str, Any]]:
+    def get_adapter_info(self) -> (dict[str, Any] | None):
         """读取已保存的 adapter 信息"""
         info_path = self.output_dir / "dpo_adapter_config.json"
         if not info_path.exists():

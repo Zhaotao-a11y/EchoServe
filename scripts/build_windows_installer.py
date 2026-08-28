@@ -19,9 +19,9 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
-logger = logging.getLogger("echoseve.build")
+logger = logging.getLogger("echoserve.build")
 
 # ═════════════════════════════════════════
 #  Inno Setup script template (loaded from file)
@@ -63,7 +63,7 @@ class WindowsInstallerBuilder:
         logger.warning(f"Template not found: {rel_path}")
         return ""
 
-    def build_all(self) -> Dict[str, Any]:
+    def build_all(self) -> dict[str, Any]:
         """Generate all Windows installer files"""
         self.build_dir.mkdir(parents=True, exist_ok=True)
         self.templates_dir.mkdir(parents=True, exist_ok=True)
@@ -85,8 +85,8 @@ class WindowsInstallerBuilder:
 
         # 3. Copy batch scripts from templates
         for bat_file in [
-            "start_echoseve.bat",
-            "stop_echoseve.bat",
+            "start_echoserve.bat",
+            "stop_echoserve.bat",
             "install_docker.bat",
             "check_environment.bat",
         ]:
@@ -136,7 +136,7 @@ class WindowsInstallerBuilder:
         content = '''#define MyAppName "EchoServe"
 #define MyAppVersion "{VERSION}"
 #define MyAppPublisher "EchoServe"
-#define MyAppURL "https://echoseve.local"
+#define MyAppURL "https://echoserve.local"
 #define MyAppExeName "EchoServe.exe"
 
 [Setup]
@@ -162,11 +162,11 @@ Source: "..\\README.md" ; DestDir: "{{app}}" ; Flags: ignoreversion
 Source: "..\\LICENSE.txt" ; DestDir: "{{app}}" ; Flags: ignoreversion
 
 [Icons]
-Name: "{{autoprograms}}\\{{#MyAppName}}" ; Filename: "{{app}}\\start_echoseve.bat"
-Name: "{{autodesktop}}\\{{#MyAppName}}" ; Filename: "{{app}}\\start_echoseve.bat"
+Name: "{{autoprograms}}\\{{#MyAppName}}" ; Filename: "{{app}}\\start_echoserve.bat"
+Name: "{{autodesktop}}\\{{#MyAppName}}" ; Filename: "{{app}}\\start_echoserve.bat"
 
 [Run]
-Filename: "{{cmd}}" ; Parameters: "/c \\"{{app}}\\start_echoseve.bat\\"" ; Description: "Start EchoServe" ; Flags: nowait postinstall skipifsilent
+Filename: "{{cmd}}" ; Parameters: "/c \\"{{app}}\\start_echoserve.bat\\"" ; Description: "Start EchoServe" ; Flags: nowait postinstall skipifsilent
 '''
         content = content.replace("{VERSION}", self.version)
         content = content.replace("{APP_ID}", self.app_id)
@@ -201,10 +201,10 @@ Section "Main" SEC01
     File "README.md"
     File "LICENSE.txt"
 
-    CreateShortCut "$DESKTOP\\EchoServe.lnk" "$INSTDIR\\start_echoseve.bat" ""
+    CreateShortCut "$DESKTOP\\EchoServe.lnk" "$INSTDIR\\start_echoserve.bat" ""
     CreateDirectory "$SMPROGRAMS\\EchoServe"
-    CreateShortCut "$SMPROGRAMS\\EchoServe\\Start.lnk" "$INSTDIR\\start_echoseve.bat" ""
-    CreateShortCut "$SMPROGRAMS\\EchoServe\\Stop.lnk" "$INSTDIR\\stop_echoseve.bat" ""
+    CreateShortCut "$SMPROGRAMS\\EchoServe\\Start.lnk" "$INSTDIR\\start_echoserve.bat" ""
+    CreateShortCut "$SMPROGRAMS\\EchoServe\\Stop.lnk" "$INSTDIR\\stop_echoserve.bat" ""
     CreateShortCut "$SMPROGRAMS\\EchoServe\\Uninstall.lnk" "$INSTDIR\\uninstall.exe" ""
 
     WriteUninstaller "$INSTDIR\\uninstall.exe"
@@ -325,7 +325,7 @@ if __name__ == "__main__":
 3. Output: output/EchoServe-{self.version}-Setup.exe
 
 ## Usage
-- Double-click desktop icon or run start_echoseve.bat
+- Double-click desktop icon or run start_echoserve.bat
 - Wait for Docker startup (2-5 min first time)
 - Browser opens https://localhost
 - Default admin: admin / Admin@2026!

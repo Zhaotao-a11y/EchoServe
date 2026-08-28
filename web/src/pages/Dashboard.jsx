@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react'
-import { useStore } from '../store'
+import { useStore, apiCall } from '../store'
+import { MetricCard } from '../components/ui'
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts'
+
+// M-16: 颜色映射（Dashboard 专用，将颜色名转为 CSS 类名传给公共 MetricCard）
+const cardColorMap = {
+  blue: { bg: 'border-blue-200 bg-blue-50', text: 'text-blue-700' },
+  green: { bg: 'border-green-200 bg-green-50', text: 'text-green-700' },
+  emerald: { bg: 'border-emerald-200 bg-emerald-50', text: 'text-emerald-700' },
+  purple: { bg: 'border-purple-200 bg-purple-50', text: 'text-purple-700' },
+  red: { bg: 'border-red-200 bg-red-50', text: 'text-red-700' },
+}
 
 function Dashboard() {
   const user = useStore(s => s.user)
@@ -14,17 +24,11 @@ function Dashboard() {
   const [health, setHealth] = useState(null)
   const [monitoring, setMonitoring] = useState(null)
 
-  // 从监控 API 获取数据
+  // M-12: 使用 apiCall 替代直接 fetch + localStorage
   const fetchMonitoring = async () => {
     try {
-      const token = localStorage.getItem('token') || ''
-      const res = await fetch('/api/monitoring/dashboard', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        const d = await res.json()
-        setMonitoring(d)
-      }
+      const d = await apiCall('/monitoring/dashboard')
+      setMonitoring(d)
     } catch (e) {
       // ignore
     }
@@ -92,43 +96,49 @@ function Dashboard() {
           label="知识库文档"
           value={biz.total_documents ?? kbStats?.total_documents ?? '--'}
           sub="总切片数"
-          color="blue"
           icon="📚"
+          bgClass={cardColorMap.blue.bg}
+          color={cardColorMap.blue.text}
         />
         <MetricCard
           label="活跃会话"
           value={biz.active_sessions ?? '--'}
           sub="当前在线"
-          color="green"
           icon="💬"
+          bgClass={cardColorMap.green.bg}
+          color={cardColorMap.green.text}
         />
         <MetricCard
           label="GPU 利用率"
           value={sys.gpu_utilization ? `${Number(sys.gpu_utilization).toFixed(0)}%` : '--'}
           sub={sys.gpu_memory_used_mb ? `${Number(sys.gpu_memory_used_mb).toFixed(0)}MB` : '未采集'}
-          color={Number(sys.gpu_utilization) > 80 ? 'red' : 'blue'}
           icon="🎮"
+          bgClass={cardColorMap[Number(sys.gpu_utilization) > 80 ? 'red' : 'blue'].bg}
+          color={cardColorMap[Number(sys.gpu_utilization) > 80 ? 'red' : 'blue'].text}
         />
         <MetricCard
           label="系统内存"
           value={sys.memory_percent ? `${Number(sys.memory_percent).toFixed(0)}%` : '--'}
           sub="使用率"
-          color={Number(sys.memory_percent) > 80 ? 'red' : 'emerald'}
           icon="🧠"
+          bgClass={cardColorMap[Number(sys.memory_percent) > 80 ? 'red' : 'emerald'].bg}
+          color={cardColorMap[Number(sys.memory_percent) > 80 ? 'red' : 'emerald'].text}
         />
         <MetricCard
           label="CPU"
           value={sys.cpu_percent ? `${Number(sys.cpu_percent).toFixed(0)}%` : '--'}
           sub="使用率"
-          color={Number(sys.cpu_percent) > 80 ? 'red' : 'emerald'}
           icon="⚡"
+          bgClass={cardColorMap[Number(sys.cpu_percent) > 80 ? 'red' : 'emerald'].bg}
+          color={cardColorMap[Number(sys.cpu_percent) > 80 ? 'red' : 'emerald'].text}
         />
         <MetricCard
           label="缓存命中率"
           value={biz.prefix_cache_hit_rate ? `${Number(biz.prefix_cache_hit_rate).toFixed(0)}%` : '≥85%'}
           sub="Prefix Cache"
-          color="purple"
           icon="⚡"
+          bgClass={cardColorMap.purple.bg}
+          color={cardColorMap.purple.text}
         />
       </div>
 
@@ -272,33 +282,6 @@ function Dashboard() {
           </table>
         </div>
       </div>
-    </div>
-  )
-}
-
-function MetricCard({ label, value, sub, color, icon }) {
-  const colorMap = {
-    blue: 'border-blue-200 bg-blue-50',
-    green: 'border-green-200 bg-green-50',
-    emerald: 'border-emerald-200 bg-emerald-50',
-    purple: 'border-purple-200 bg-purple-50',
-    red: 'border-red-200 bg-red-50',
-  }
-  const textMap = {
-    blue: 'text-blue-700',
-    green: 'text-green-700',
-    emerald: 'text-emerald-700',
-    purple: 'text-purple-700',
-    red: 'text-red-700',
-  }
-  return (
-    <div class={`border rounded-xl p-4 ${colorMap[color] || 'border-gray-200 bg-white'}`}>
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-2xl">{icon}</span>
-        <span class={`text-xs px-2 py-0.5 rounded ${textMap[color] || 'text-gray-500'}`}>{sub}</span>
-      </div>
-      <div class="text-2xl font-bold text-gray-900">{value}</div>
-      <div class="text-sm text-gray-500 mt-1">{label}</div>
     </div>
   )
 }

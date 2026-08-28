@@ -23,9 +23,9 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Set
+from typing import Any
 
-logger = logging.getLogger("echoseve.evolve.session_miner")
+logger = logging.getLogger("echoserve.evolve.session_miner")
 
 
 # Refusal phrases that indicate low-quality / unhelpful responses
@@ -127,7 +127,7 @@ class SessionMiner:
         max_query_len: int = 2000,
         max_response_len: int = 4000,
         max_context_turns: int = 3,
-        refusal_phrases: Optional[List[str]] = None,
+        refusal_phrases: (list[str] | None) = None,
     ):
         self.output_path = Path(output_path)
         self.state_path = Path(state_path)
@@ -146,7 +146,7 @@ class SessionMiner:
 
     # ─── Public API ───────────────────────────────────
 
-    async def mine(self, chat_manager) -> Dict[str, Any]:
+    async def mine(self, chat_manager) -> dict[str, Any]:
         """
         Mine all sessions from the chat manager's SessionStore.
 
@@ -185,7 +185,7 @@ class SessionMiner:
             f"{len(processed)} already processed"
         )
 
-        new_samples: List[Dict[str, Any]] = []
+        new_samples: list[dict[str, Any]] = []
         skipped = 0
         sessions_processed = 0
 
@@ -234,7 +234,7 @@ class SessionMiner:
             "elapsed_seconds": elapsed,
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Return current state statistics."""
         processed = self._load_processed_sessions()
         pool_count = self._count_lines(self.output_path) if self.output_path.exists() else 0
@@ -255,8 +255,8 @@ class SessionMiner:
     def _convert_session(
         self,
         session_id: str,
-        history: List[Dict[str, str]],
-    ) -> List[Dict[str, Any]]:
+        history: list[dict[str, str]],
+    ) -> list[dict[str, Any]]:
         """
         Convert a session's message history into training samples.
 
@@ -316,7 +316,7 @@ class SessionMiner:
 
         return samples
 
-    def _build_context(self, turns: List[Dict[str, str]]) -> str:
+    def _build_context(self, turns: list[dict[str, str]]) -> str:
         """Build a context string from preceding turns."""
         if not turns:
             return ""
@@ -333,7 +333,7 @@ class SessionMiner:
 
         return "\n".join(parts)
 
-    def _load_processed_sessions(self) -> Set[str]:
+    def _load_processed_sessions(self) -> set[str]:
         """Load the set of already-processed session IDs."""
         if not self.state_path.exists():
             return set()
@@ -345,7 +345,7 @@ class SessionMiner:
             logger.warning(f"[SessionMiner] Failed to load state: {e}")
             return set()
 
-    def _save_processed_sessions(self, sessions: Set[str]):
+    def _save_processed_sessions(self, sessions: set[str]):
         """Save the set of processed session IDs."""
         state = {
             "processed_sessions": sorted(sessions),

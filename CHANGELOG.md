@@ -5,6 +5,140 @@
 
 ---
 
+## [V0.2.0] - 2026-08-28 — 进化系统优化 + 性能修复 + 数据清洗（Release）
+
+### 概述
+
+本次 Release 统一升级系统版本号至 V0.2.0，涵盖三大板块：进化系统修复与全链路验证、对话响应性能瓶颈定位与修复、临时代码与测试数据清洗。所有变更已通过启动验证。
+
+---
+
+### 一、进化系统修复（2 项）
+
+#### FIX-1 — EvolutionQuery 路由前缀错误
+
+**问题**：`plugins/evolution/phase1/query.py` 中路由前缀为 `/evolution`，但前端和 API 网关期望 `/api/evolution`，导致所有进化审核端点 404。
+
+**修复**：路由前缀 `/evolution` → `/api/evolution`，所有 `/api/evolution/*` 端点恢复正常返回 JSON。
+
+**影响文件**：`plugins/evolution/phase1/query.py`
+
+---
+
+#### FIX-2 — EvolutionPlugin 缺少 reviewer 公共属性
+
+**问题**：`plugins/evolution/plugin.py` 未暴露 `reviewer` 属性，query.py 中 `_evolution_plugin.reviewer` 访问失败。
+
+**修复**：新增 `reviewer` 公共属性返回 `self._reviewer`。
+
+**影响文件**：`plugins/evolution/plugin.py`
+
+---
+
+### 二、进化系统全链路验证
+
+通过临时端点完成完整进化链路验证（验证后已删除临时端点）：
+
+| 步骤 | 验证内容 | 结果 |
+|------|----------|------|
+| Step 1 | 注入 60 条 skill_trace 测试数据 | ✅ |
+| Step 2 | PatternMiner 挖掘模式（min_support=5） | ✅ 挖掘 6 个模式 |
+| Step 3 | TemplateGenerator 生成候选模板 | ✅ 生成 6 个候选 |
+| Step 4 | Reviewer.submit 提交审核 | ✅ |
+| Step 5 | approve 2 / reject 1 | ✅ |
+| Step 6 | 重复审批被 400 拦截 | ✅ |
+
+**发现并修复的接口适配问题**：
+- `store.write()` 不存在 → 改用 `insert_batch()`（格式 `[{"table":..., "data":...}]`）
+- `store.query()` 返回的 list/dict 字段为序列化字符串 → 需 `json.loads` 反序列化
+
+---
+
+### 三、对话响应性能瓶颈定位与修复（2 项）
+
+#### PERF-1 — ChromaDB 连接重试导致每次请求延迟 2.6s
+
+**根因**：`plugins/retriever/vector.py` 中 ChromaDB 服务未运行但 `chromadb` 包已安装（`HAS_CHROMA=True`），每次 `vector.search()` 重新调用 `initialize()` 尝试连接 `chroma:8000`，DNS 解析超时 2.61s/次。
+
+**修复**：新增 `_init_failed` 标志，初始化失败后不再重试。修复后后端处理时间从 ~7.9s 降至 ~0.5-0.7s（**降低 91%**）。
+
+**影响文件**：`plugins/retriever/vector.py`（正式修复，保留）
+
+---
+
+#### PERF-2 — 全链路耗时打点与瓶颈定位
+
+通过 chat 插件内打点和中间件打点完成全链路耗时分析：
+
+| 组件 | 耗时 | 占比 |
+|------|------|------|
+| LLM 推理（qwen2.5:0.5b CPU） | ~480ms | 97% |
+| BM25 检索 | 13-58ms | ~3% |
+| 会话管理 + 审计日志 + 事件发布 | <3ms | <1% |
+
+**结论**：后端链路已无优化空间，进一步提速需换更大模型或上 GPU。审计日志单次写入 0.14ms（P99 0.33ms），改异步写入提升约 0.4ms，不可感知，不值得做。
+
+---
+
+### 四、数据清洗与临时代码清理（6 项）
+
+| 清理项 | 类型 | 说明 |
+|--------|------|------|
+| 临时测试端点 `POST /api/evolution/test/evolution-full-cycle` | 删除 | ~150 行临时验证代码，已从 query.py 移除 |
+| chat 插件 PERF BREAKDOWN 性能打点 | 删除 | 8 个 `_tN` 变量 + 日志输出，已从 plugin.py 移除 |
+| main.py 中间件 `[MW]` 计时代码 | 删除 | 3 行临时打点，已从 main.py 移除 |
+| `test_chat_speed.py` | 删除 | 项目根目录临时测速脚本（61 行） |
+| `data/test_customer_data.md` | 删除 | 临时测试数据文件 |
+| `data/audit/audit.log.jsonl` | 清空 | 172 条运行时审计日志（86KB），已清空 |
+
+**保留的正式修复**：`plugins/retriever/vector.py` 的 `_init_failed` 标志（ChromaDB 连接失败降级机制，属正式修复，保留）。
+
+---
+
+### 五、版本号统一升级至 V0.2.0（12 处）
+
+| 文件 | 旧版本 | 新版本 |
+|------|--------|--------|
+| `api/main.py` — FastAPI version | 0.1.2 | 0.2.0 |
+| `api/main.py` — FastAPI title | V0.1.0 | V0.2.0 |
+| `api/main.py` — 启动日志 | V0.1.0 | V0.2.0 |
+| `api/main.py` — 就绪日志 | V0.1.0 | V0.2.0 |
+| `api/routers/settings.py` — version | 0.1.2 | 0.2.0 |
+| `cpu_llm_server.py` — FastAPI version | 0.1.0 | 0.2.0 |
+| `core/plugin.py` — plugin_version | 0.1.0 | 0.2.0 |
+| `plugins/chat/plugin.py` — 文件头注释 | V0.1.0 | V0.2.0 |
+| `.env` — 注释 | V0.1.0 | V0.2.0 |
+| `.env.example` — 注释 | V0.1.0 | V0.2.0 |
+| `.env.qwen3-8b` — 注释 | V0.1.0 | V0.2.0 |
+| `web/src/App.jsx` — 前端版本显示 | V0.1.0 | V0.2.0 |
+| `web/src/pages/Login.jsx` — 登录页版本标签 | V0.1.0 | V0.2.0 |
+
+---
+
+### 修改文件清单（10 文件）
+
+| 文件 | 变更类型 |
+|------|----------|
+| `plugins/evolution/phase1/query.py` | FIX-1 路由前缀修复 + 删除临时测试端点 |
+| `plugins/evolution/plugin.py` | FIX-2 reviewer 属性暴露 |
+| `plugins/retriever/vector.py` | PERF-1 ChromaDB 降级标志（保留） |
+| `plugins/chat/plugin.py` | 删除性能打点 + 版本号升级 |
+| `api/main.py` | 删除中间件打点 + 版本号升级（4 处） |
+| `api/routers/settings.py` | 版本号升级 |
+| `cpu_llm_server.py` | 版本号升级 |
+| `core/plugin.py` | plugin_version 升级 |
+| `.env` / `.env.example` / `.env.qwen3-8b` | 版本号注释升级 |
+| `web/src/App.jsx` / `web/src/pages/Login.jsx` | 前端版本显示升级 |
+
+### 删除文件清单（2 文件）
+
+| 文件 | 说明 |
+|------|------|
+| `test_chat_speed.py` | 临时测速脚本 |
+| `data/test_customer_data.md` | 临时测试数据 |
+
+---
+
 ## [0.5.0] - 2026-08-21 — 数据回流闭环实现（P0→P2，7 项）
 
 ### 概述

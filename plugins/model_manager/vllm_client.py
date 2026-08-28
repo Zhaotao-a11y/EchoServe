@@ -9,13 +9,14 @@ EchoServe P1 — vLLM 客户端（模型热切换）
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
-from typing import Optional, Dict, Any, List
+from typing import Any
 import httpx
 
-logger = logging.getLogger("echoseve.model.vllm")
+logger = logging.getLogger("echoserve.model.vllm")
 
 
 class VLLMClient:
@@ -39,8 +40,8 @@ class VLLMClient:
         self.timeout = timeout
         self._client = httpx.Client(timeout=timeout)
         self._async_client = httpx.AsyncClient(timeout=timeout)
-        self._current_model: Optional[str] = None
-        self._loaded_adapters: List[str] = []
+        self._current_model: str | None = None
+        self._loaded_adapters: list[str] = []
 
     # ─── 生命周期 ──────────────────────────────────
 
@@ -49,13 +50,15 @@ class VLLMClient:
         self._client.close()
         # 异步客户端需在事件循环中关闭
         try:
-            loop = __import__("asyncio").get_event_loop()
-            if loop.is_running():
-                loop.create_task(self._async_client.aclose())
-            else:
-                loop.run_until_complete(self._async_client.aclose())
-        except Exception as e:
-            logger.debug(f"Error closing vLLM sync client: {e}")
+            asyncio.get_running_loop()
+            # 在 async 上下文中——创建 task 异步关闭（fire and forget）
+            asyncio.ensure_future(self._async_client.aclose())
+        except RuntimeError:
+            # 不在 async 上下文——用 asyncio.run() 同步关闭
+            try:
+                asyncio.run(self._async_client.aclose())
+            except Exception as e:
+                logger.debug(f"Error closing vLLM sync client: {e}")
 
     async def aclose(self):
         """异步关闭"""
@@ -64,7 +67,7 @@ class VLLMClient:
 
     # ─── 健康检查 ──────────────────────────────────
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """检查 vLLM 服务健康状态"""
         try:
             resp = self._client.get(f"{self.host}/health")
@@ -76,7 +79,7 @@ class VLLMClient:
         except Exception as e:
             return {"healthy": False, "error": str(e)}
 
-    async def ahealth_check(self) -> Dict[str, Any]:
+    async def ahealth_check(self) -> dict[str, Any]:
         """异步健康检查"""
         try:
             resp = await self._async_client.get(f"{self.host}/health")
@@ -90,7 +93,7 @@ class VLLMClient:
 
     # ─── 模型管理 ──────────────────────────────────
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """列出当前已加载的模型"""
         try:
             resp = self._client.get(f"{self.host}/v1/models")
@@ -102,14 +105,14 @@ class VLLMClient:
             logger.error(f"  获取模型列表失败: {e}")
             return []
 
-    def get_current_model(self) -> Optional[str]:
+    def get_current_model(self) -> str | None:
         """获取当前活跃模型 ID"""
         models = self.list_models()
         if models:
             self._current_model = models[0].get("id", "")
         return self._current_model
 
-    def load_model(self, model_path: str, model_id: Optional[str] = None) -> Dict[str, Any]:
+    def load_model(self, model_path: str, model_id: str | None = None) -> dict[str, Any]:
         """
         加载新模型（vLLM 的 /load_model 接口）。
 
@@ -152,7 +155,7 @@ class VLLMClient:
             logger.error(f"  模型加载异常: {e}")
             return {"status": "failed", "reason": str(e)}
 
-    def unload_model(self, model_id: Optional[str] = None) -> Dict[str, Any]:
+    def unload_model(self, model_id: str | None = None) -> dict[str, Any]:
         """
         卸载模型（释放显存）。
 
@@ -193,7 +196,7 @@ class VLLMClient:
         self,
         adapter_path: str,
         adapter_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         动态加载 LoRA adapter（无需重启 vLLM）。
 
@@ -230,7 +233,7 @@ class VLLMClient:
             logger.error(f"  LoRA 加载异常: {e}")
             return {"status": "failed", "reason": str(e)}
 
-    def unload_lora_adapter(self, adapter_name: str) -> Dict[str, Any]:
+    def unload_lora_adapter(self, adapter_name: str) -> dict[str, Any]:
         """卸载指定的 LoRA adapter"""
         try:
             resp = self._client.post(
@@ -245,7 +248,7 @@ class VLLMClient:
         except Exception as e:
             return {"status": "failed", "reason": str(e)}
 
-    def list_lora_adapters(self) -> List[str]:
+    def list_lora_adapters(self) -> list[str]:
         """列出已加载的 LoRA adapters"""
         return list(self._loaded_adapters)
 
@@ -253,12 +256,12 @@ class VLLMClient:
 
     def chat(
         self,
-        messages: List[Dict[str, str]],
-        model: Optional[str] = None,
+        messages: list[dict[str, str]],
+        model: str | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.3,
         top_p: float = 0.9,
-        lora_name: Optional[str] = None,
+        lora_name: str | None = None,
     ) -> str:
         """
         同步对话推理。
@@ -304,11 +307,11 @@ class VLLMClient:
 
     async def achat(
         self,
-        messages: List[Dict[str, str]],
-        model: Optional[str] = None,
+        messages: list[dict[str, str]],
+        model: str | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.3,
-        lora_name: Optional[str] = None,
+        lora_name: str | None = None,
     ) -> str:
         """异步对话推理"""
         payload = {
@@ -341,11 +344,11 @@ class VLLMClient:
 
     async def achat_stream(
         self,
-        messages: List[Dict[str, str]],
-        model: Optional[str] = None,
+        messages: list[dict[str, str]],
+        model: str | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.3,
-        lora_name: Optional[str] = None,
+        lora_name: str | None = None,
     ):
         """异步流式对话（生成器）"""
         payload = {
@@ -384,7 +387,7 @@ class VLLMClient:
 
     # ─── 状态查询 ──────────────────────────────────
 
-    def get_server_info(self) -> Dict[str, Any]:
+    def get_server_info(self) -> dict[str, Any]:
         """获取 vLLM 服务器信息"""
         try:
             resp = self._client.get(f"{self.host}/version")
