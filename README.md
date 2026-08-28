@@ -261,10 +261,10 @@ pip install -r requirements.txt
 
 # 3. 配置环境变量
 cp .env.example .env
-# 编辑 .env：MODEL_PATH=./models/qwen3-8b, INFERENCE_BACKEND=ollama
+# 编辑 .env：OLLAMA_MODEL=qwen2.5:0.5b, INFERENCE_BACKEND=ollama
 
-# 4. 启动 Ollama（CPU 模式）
-docker run -d --gpus all -v ollama:/root/.ollama -p 11434:11434 ollama/ollama
+# 4. 拉取模型（本地测试用 Qwen2.5-0.5B，CPU 即可运行）
+ollama pull qwen2.5:0.5b
 
 # 5. 启动后端
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8080
@@ -309,7 +309,8 @@ cp .env.example .env
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8080
 
 # 8. 配置 ngrok 公网访问（企业微信客服回调需要）
-ngrok http 8080 --domain=your-domain.ngrok-free.dev
+ngrok http 8080
+# 将 ngrok 分配的域名填入企业微信后台回调 URL
 ```
 
 **典型配置（当前运行环境）**:
@@ -348,7 +349,7 @@ ngrok http 8080 --domain=your-domain.ngrok-free.dev
 - EncodingAESKey：43 位随机字符串
 - Secret：企业微信应用 Secret
 
-回调 URL：`https://your-domain.ngrok-free.dev/webhook/wechat_kf`
+回调 URL：`https://<你的公网域名>/webhook/wechat_kf`（公网域名由 ngrok 或反向代理提供，请替换为实际地址）
 
 ### 5. 开启数据闭环
 

@@ -12,7 +12,7 @@ echo ================================================
 echo.
 
 REM 配置区（使用前必须修改）
-set "NGROK_URL=https://your-domain.ngrok-free.dev"
+set "NGROK_URL=https://<你的-ngrok-域名>.ngrok-free.dev"
 set "NGROK_EXE=D:\llm_learn\ngrok\ngrok.exe"
 
 REM 进入项目目录
