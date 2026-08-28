@@ -80,7 +80,7 @@ class ModelEvolvePlugin(BaizePlugin):
         )
         self.preference_store = PreferenceStore(
             store_path=prefs_path,
-            auto_trigger_threshold=50,
+            auto_trigger_threshold=2000,
             on_auto_trigger=self._on_dpo_auto_trigger,
         )
 

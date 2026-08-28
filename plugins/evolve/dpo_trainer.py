@@ -42,7 +42,7 @@ class PreferenceStore:
     def __init__(
         self,
         store_path: str = "./data/training/preferences.jsonl",
-        auto_trigger_threshold: int = 50,
+        auto_trigger_threshold: int = 2000,
         on_auto_trigger: (Callable[[dict[str, Any]], None] | None) = None,
     ):
         self.store_path = Path(store_path)
@@ -131,7 +131,7 @@ class PreferenceStore:
         检查偏好数据是否达到自动触发阈值。
 
         触发条件:
-          1. 总反馈数 >= auto_trigger_threshold (默认 50)
+          1. 总反馈数 >= auto_trigger_threshold (默认 2000)
           2. 自上次触发以来新增反馈数 >= threshold (避免每次反馈都触发)
           3. like >= 3 且 dislike >= 3 (ready_for_dpo 条件)
 
