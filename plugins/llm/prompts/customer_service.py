@@ -129,7 +129,7 @@ def build_system_prompt(
             context_parts = []
             for i, doc in enumerate(retrieved_docs, 1):
                 content = doc.get("content", "")
-                context_parts.append(f"[{i}] {content}")
+                context_parts.append(f"[参考{i}] {content}")
             knowledge_context = "\n".join(context_parts)
             return CUSTOMER_SERVICE_FAST.format(knowledge_context=knowledge_context)
         return CUSTOMER_SERVICE_FAST.format(knowledge_context="暂无相关参考资料")
@@ -139,8 +139,20 @@ def build_system_prompt(
         context_parts = []
         for i, doc in enumerate(retrieved_docs, 1):
             content = doc.get("content", "")
-            source = doc.get("metadata", {}).get("source", "未知来源")
-            context_parts.append(f"[参考 {i}] (来源: {source})\n{content}")
+            metadata = doc.get("metadata", {})
+            # Phase 2.4: 优先使用溯源增强后的元数据
+            source_name = metadata.get("source_name", "")
+            source_location = metadata.get("source_location", "")
+            if not source_name:
+                source_name = metadata.get("source", metadata.get("filename", "未知来源"))
+                if "#" in source_name:
+                    source_name = source_name.split("#")[0]
+
+            if source_location:
+                ref_header = f"[参考{i}] (来源: {source_name}，{source_location})"
+            else:
+                ref_header = f"[参考{i}] (来源: {source_name})"
+            context_parts.append(f"{ref_header}\n{content}")
         knowledge_context = "\n\n".join(context_parts)
         return CUSTOMER_SERVICE_WITH_KB.format(knowledge_context=knowledge_context)
 

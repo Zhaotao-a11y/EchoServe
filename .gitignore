@@ -43,6 +43,15 @@ data/evolution.db
 data/evolution.db-shm
 data/evolution.db-wal
 data/evolution_fallback/
+data/ticket.db
+data/ticket.db-shm
+data/ticket.db-wal
+data/agent.db
+data/agent.db-shm
+data/agent.db-wal
+data/quick_reply.db
+data/quick_reply.db-shm
+data/quick_reply.db-wal
 !data/.gitkeep
 
 # 构建产物

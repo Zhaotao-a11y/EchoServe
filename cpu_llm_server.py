@@ -58,7 +58,7 @@ class CPULLMServer:
         self.device = device
         self.model = None
         self.tokenizer = None
-        self.app = FastAPI(title="EchoServe CPU LLM Server", version="0.2.0")
+        self.app = FastAPI(title="EchoServe CPU LLM Server", version="0.3.0")
         self._setup_routes()
 
     def load_model(self) -> None:

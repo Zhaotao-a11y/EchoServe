@@ -133,6 +133,31 @@ EchoServe 是**企业级本地大模型客服系统**，核心差异化在于**�
 | **Prompt 注入防护** | 输入清洗 + 注入检测 + 输出过滤三层安全 | ✅ |
 | **进化系统前端** | EvolutionSystem 页面（审核队列 + 模式列表 + 统计看板） | ✅ |
 
+### V0.3.0 B 端客服业务体系（已上线）
+
+| 模块 | 功能 | 状态 |
+|------|------|------|
+| **工单系统** | 工单全生命周期：创建/分配/流转/SLA 超时预警/评论/统计看板 | ✅ |
+| **坐席管理** | 坐席注册/状态管理（online/busy/break/offline）/并发上限/工作负载/实时看板 | ✅ |
+| **人机转接** | AI → 人工无缝衔接，自动按负载分配，全忙排队机制 | ✅ |
+| **满意度评价** | 1-5 星 + 标签 + 文字反馈，按坐席/时段聚合统计 | ✅ |
+| **快捷回复** | 话术模板管理，分类组织，变量占位符动态渲染，使用次数统计 | ✅ |
+
+### V0.3.1 RAG 增强 + AI 自动工单 + Function Calling（已上线）
+
+| 模块 | 功能 | 状态 |
+|------|------|------|
+| **语义分块** | 段落边界检测 + Jaccard 相似度 + 贪心分块 + 重叠合并 | ✅ |
+| **溯源标注** | 检索结果引用元数据注入、参考文献列表生成、幽灵引用清除 | ✅ |
+| **增量更新** | content_hash 检测变更、增量删除旧 chunks、非全量重建索引 | ✅ |
+| **AI 意图分类** | 5 类意图（投诉/Bug/功能请求/咨询/通用），关键词+规则，置信度计算 | ✅ |
+| **根因调查** | 知识库匹配已知问题 + 历史工单匹配 + RCA 报告自动生成 | ✅ |
+| **智能分配** | 技能匹配 40% + 负载 25% + 级别 20% + 满意度 15% 加权评分 | ✅ |
+| **Function Calling** | ToolRegistry + ToolOrchestrator + 3 个预置工具（订单/库存/退货） | ✅ |
+| **工具适配** | OpenAI-compatible Function Calling + Prompt 模拟双模式 | ✅ |
+| **智能转接** | 情绪检测自动触发 + 意图置信度判断 + 对话摘要传递 + 智能路由 + 人机无缝衔接 | ✅ |
+| **转接 API** | 4 个智能转接端点：analyze / execute / sentiment / summary | ✅ |
+
 ---
 
 ## 技术栈
@@ -141,7 +166,8 @@ EchoServe 是**企业级本地大模型客服系统**，核心差异化在于**�
 - **框架**: FastAPI + Pydantic v2
 - **推理**: vLLM（GPU）/ Ollama（CPU）
 - **向量库**: ChromaDB + Sentence-Transformers
-- **检索**: BM25 (rank-bm25) + CrossEncoder 重排序
+- **检索**: BM25 (rank-bm25) + CrossEncoder 重排序 + 语义分块
+- **工具框架**: ToolRegistry + ToolOrchestrator（OpenAI-compatible / Prompt 模拟双模式）
 - **微调**: Axolotl (QLoRA 4-bit)
 - **数据**: Pandas + NumPy
 - **监控**: Prometheus Client
@@ -176,6 +202,8 @@ EchoServe/
 │       ├── knowledge.py          # 知识库管理
 │       ├── model.py              # 模型管理
 │       ├── evolve.py             # 模型进化（训练/评估/切换）
+│       ├── ticket_ai.py          # AI 工单 + 智能分配 + 工具调用（Phase 2.5/2.6）
+│       ├── agent.py              # 坐席管理 + 智能转接端点（Phase 2.7）
 │       ├── metrics.py            # 监控指标
 │       └── settings.py           # 系统设置（微信客服配置等）
 │
@@ -189,6 +217,10 @@ EchoServe/
 │   ├── auth/                     # 认证插件（用户/角色/权限）
 │   ├── chat/                     # 对话插件（LLM 调用）
 │   ├── knowledge/                # 知识库插件（文档管理）
+│   │   ├── plugin.py             # 知识库主插件
+│   │   ├── document_parser.py    # 文档解析器（PDF/DOCX/TXT）
+│   │   ├── semantic_chunker.py   # 语义分块器（Jaccard + 贪心分块）
+│   │   └── source_citation.py    # 溯源标注管理器（引用规范化）
 │   ├── retriever/                # 检索插件（RAG 引擎）
 │   ├── llm/                      # LLM 插件（vLLM/Ollama 适配）
 │   ├── model_manager/            # 模型管理插件
@@ -204,7 +236,15 @@ EchoServe/
 │   │   └── phase1/               # 审核工作台 API
 │   │       └── query.py          # 进化审核端点（approve/reject/pending）
 │   ├── channel_wechat_kf/        # 企业微信客服插件
-│   └── channel_whatsapp/         # WhatsApp 插件
+│   ├── channel_whatsapp/         # WhatsApp 插件
+│   ├── ticket/                   # 工单系统插件（V0.3.0）
+│   │   ├── ai_investigator.py    # AI 自动工单 + 根因调查 + RCA 报告
+│   │   └── auto_assigner.py      # 智能工单分配器（技能/负载/级别/满意度）
+│   ├── tools/                    # Function Calling / Tool Use 框架（V0.3.1）
+│   │   └── __init__.py           # ToolRegistry + ToolOrchestrator + 预置工具
+│   ├── agent/                    # 坐席管理+人机转接+满意度评价插件（V0.3.0）
+│   │   └── intelligent_handoff.py # 智能转接引擎：情绪分析 + 摘要生成 + 智能路由（Phase 2.7）
+│   └── quick_reply/              # 快捷回复模板插件（V0.3.0）
 │
 ├── web/                          # React 前端
 │   ├── src/
@@ -231,7 +271,9 @@ EchoServe/
 │
 ├── scripts/                      # 运维脚本
 │   ├── train_lora.py             # LoRA 微调脚本
-│   └── test_wechat_kf.py         # 微信客服测试脚本
+│   ├── test_wechat_kf.py         # 微信客服测试脚本
+│   ├── test_phase2_5_6_smoke.py  # Phase 2.5/2.6 烟雾测试
+│   └── test_intelligent_handoff.py # Phase 2.7 智能转接集成测试
 │
 ├── docs/                         # 文档
 │   ├── DEPLOYMENT.md             # 生产部署指南
@@ -492,10 +534,8 @@ AUTO_TRIGGER_THRESHOLD=2000      # 自动触发 DPO 的偏好反馈阈值
 |------|------|------|
 | **v0.1.0** | P0 核心功能：RAG 对话 + 微信客服 + 基础管理 | ✅ 已完成 |
 | **v0.2.0** | P1 模型进化：LoRA 微调 + DPO + A/B 评估 | ✅ 已完成 |
-| **v0.3.0** | P2 企业认证：LDAP + OAuth2 + 等保合规 | ✅ 已完成 |
-| **V0.2.0** | 进化引擎 + 性能修复 + Prompt 注入防护 + ChromaDB 降级 | ✅ 已完成 |
-| **v0.5.0** | 智能质检：敏感词过滤、情绪识别、转人工 | 规划中 |
-| **v1.0.0** | 企业级 SaaS：多租户、计费、SLA | 规划中 |
+| **v0.3.0** | P2 企业认证 + B 端客服业务：LDAP + OAuth2 + 工单 + 坐席 + 人机转接 + 快捷回复 | ✅ 已完成 |
+| **v0.3.1** | Phase 2.4–2.7：语义分块 + 溯源标注 + 增量更新 / AI 自动工单 + 根因调查 / Function Calling + 工具编排 / 智能转接集成（情绪检测 + 对话摘要 + 智能路由 + API 端点） | ✅ 已完成 |
 
 ---
 

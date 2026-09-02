@@ -236,7 +236,7 @@ async def get_system_info(
         pass
 
     # --- 版本号 ---
-    version = "0.2.0"
+    version = "0.3.0"
     build = "P2"
 
     return {

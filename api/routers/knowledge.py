@@ -5,6 +5,7 @@ EchoServe V0.1.0 — 知识库 API 路由（P0 完整版）
     GET    /api/knowledge           列出文档（分页 + 权限过滤）
     POST   /api/knowledge           添加文档
     POST   /api/knowledge/upload    文件上传（PDF/DOCX/MD/TXT）
+    POST   /api/knowledge/update-file 增量更新文件（hash检测+增量索引）
     PUT    /api/knowledge/{id}     更新文档
     DELETE /api/knowledge/{id}     删除文档
     POST   /api/knowledge/ingest   批量导入（JSONL）
@@ -245,6 +246,45 @@ async def update_document(
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"status": "updated", "doc_id": doc_id}
+
+
+@router.post("/knowledge/update-file")
+async def update_file(
+    file: UploadFile = File(..., description="更新文件：内容变更时自动重建索引，无变更则跳过"),
+    kb_role: tuple = Depends(get_kb),
+    _: str = Depends(require_permission("kb.write")),
+):
+    """
+    增量更新文件端点。
+
+    基于 content_hash 检测文件是否变更：
+    - 内容未变 → 跳过，返回 content_unchanged
+    - 内容变更 → 删除旧 chunks → 重新解析+切片+索引（增量，非全量重建）
+    """
+    kb, role = kb_role
+
+    content = await file.read()
+    filename = _validate_upload_file(file, content)
+
+    try:
+        result = await kb.update_file(
+            file_content=content,
+            filename=filename,
+            allowed_roles=[role] if role != "*" else ["*"],
+        )
+        return {
+            "status": "updated" if result.get("updated") else "skipped",
+            "filename": filename,
+            "total_chunks": result.get("total_chunks", 0),
+            "doc_ids": result.get("doc_ids", []),
+            "reason": result.get("reason", ""),
+            "previous_doc_count": result.get("previous_doc_count", 0),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"[API] Update file error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/knowledge/{doc_id}")

@@ -55,6 +55,8 @@ ROLE_PERMISSIONS = {
             "audit.read",
             "system.read",
             "system.write",
+            "ticket.read", "ticket.write",
+            "agent.read", "agent.write",
         ],
     },
     "editor": {

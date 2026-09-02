@@ -59,8 +59,15 @@ from plugins.monitoring.plugin import MonitoringPlugin
 from plugins.auth_enterprise.plugin import EnterpriseAuthPlugin    # LDAP + OAuth2
 from plugins.channel_whatsapp.plugin import WhatsAppChannelPlugin  # WhatsApp
 
+# ─── P0 业务插件（V0.3.0 新增）────────────────────
+from plugins.ticket.plugin import TicketPlugin                       # 工单系统
+from plugins.agent.plugin import AgentPlugin                         # 坐席管理 + 人机转接
+from plugins.quick_reply.plugin import QuickReplyPlugin             # 快捷回复
+
 # ─── Evolution System v1.0（自我进化基础设施）────────
 from plugins.evolution.plugin import EvolutionPlugin  # Phase 1-3 数据采集 + A/B + 技能进化
+from plugins.workflow.plugin import WorkflowPlugin   # Phase 1: 可视化工作流引擎
+from plugins.model_provider.plugin import ModelProviderPlugin  # Phase 1.3: 多模型 Provider 管理
 
 # ─── 路由导入 ──────────────────────────────────────
 from api.routers import auth as auth_router
@@ -71,6 +78,12 @@ from api.routers import model as model_router
 from api.routers import evolve as evolve_router
 from api.routers import metrics as metrics_router
 from api.routers import settings as settings_router
+from api.routers import ticket as ticket_router
+from api.routers import agent as agent_router
+from api.routers import quick_reply as quick_reply_router
+from api.routers import workflow as workflow_router
+from api.routers import model_provider as model_provider_router
+from api.routers import ticket_ai as ticket_ai_router  # Phase 2.5/2.6: AI 工单调查 + 工具调用
 
 # ─── 全局状态 ──────────────────────────────────────
 ctx: BaizeContext = None
@@ -104,9 +117,10 @@ async def lifespan(app: FastAPI):
         raise
 
     logger.info("=" * 60)
-    logger.info("  EchoServe V0.2.0 — Starting...")
+    logger.info("  EchoServe V0.3.0 — Starting...")
     logger.info("  Features: Auth | Audit | RAG+Rerank | Chat | WeChat |")
     logger.info("            ModelMgr | Evolve | Monitor | WhatsApp | EnterpriseAuth")
+    logger.info("            Ticket | Agent | QuickReply | Handoff | Satisfaction")
     logger.info("=" * 60)
 
     startup_failed = False
@@ -146,11 +160,55 @@ async def lifespan(app: FastAPI):
         loader.register(EnterpriseAuthPlugin)    # 企业认证 LDAP/OAuth（依赖 auth）
         loader.register(WhatsAppChannelPlugin)  # WhatsApp（依赖 chat/auth）
 
+        # V0.3.0 业务插件
+        loader.register(TicketPlugin)            # 工单系统（无依赖）
+        loader.register(AgentPlugin)             # 坐席管理 + 人机转接（无依赖）
+        loader.register(QuickReplyPlugin)        # 快捷回复（无依赖）
+        loader.register(WorkflowPlugin)          # 可视化工作流引擎（Phase 1）
+        loader.register(ModelProviderPlugin)     # 多模型 Provider 管理（Phase 1.3）
+
         loader.load_all()
         logger.info(f"[Main] Plugins registered: {loader.get_plugin_ids()}")
 
         # 4. 启动所有插件
         await fiber_manager.start_all()
+
+        # ─── Phase 2.5: AI 工单调查 + 智能分配 初始化 ────────
+        try:
+            from plugins.ticket.ai_investigator import AIInvestigatorManager
+            from plugins.ticket.auto_assigner import SmartTicketAssigner
+            from plugins.tools import ToolRegistry, ToolOrchestrator, create_default_tools
+
+            # AI 工单调查管理器
+            ai_investigator = AIInvestigatorManager()
+            ticket_svc = ctx.inject("ticket_service", None)
+            kb_svc = ctx.inject("knowledge_base", None)
+            llm_svc = ctx.inject("llm", None)
+            ai_investigator.set_services(
+                ticket_service=ticket_svc,
+                knowledge_base=kb_svc,
+                llm=llm_svc,
+            )
+            ctx.provide("ai_investigator", ai_investigator)
+            logger.info("[Main] AI Investigator initialized (Phase 2.5)")
+
+            # 智能分配器
+            smart_assigner = SmartTicketAssigner()
+            smart_assigner.set_ticket_service(ticket_svc)
+            ctx.provide("smart_assigner", smart_assigner)
+            logger.info("[Main] Smart Ticket Assigner initialized (Phase 2.5)")
+
+            # Phase 2.6: 工具注册中心 + 编排器
+            tool_registry = ToolRegistry()
+            for tool_def in create_default_tools():
+                tool_registry.register(tool_def)
+            tool_orchestrator = ToolOrchestrator(tool_registry)
+            tool_orchestrator.set_llm(llm_svc)
+            ctx.provide("tool_registry", tool_registry)
+            ctx.provide("tool_orchestrator", tool_orchestrator)
+            logger.info("[Main] Tool Registry + Orchestrator initialized (Phase 2.6)")
+        except Exception as e:
+            logger.warning(f"[Main] Phase 2.5/2.6 init failed (non-fatal): {e}")
 
         # 4.5 将插件注册的路由挂载到 FastAPI app
         app.include_router(plugin_router)
@@ -188,7 +246,7 @@ async def lifespan(app: FastAPI):
         app.state.fiber_manager = fiber_manager
 
         logger.info("=" * 60)
-        logger.info("  EchoServe V0.2.0 — Ready!")
+        logger.info("  EchoServe V0.3.0 — Ready!")
         logger.info(f"  API: http://{settings.api.host}:{settings.api.port}")
         logger.info(f"  Docs: http://{settings.api.host}:{settings.api.port}/docs")
         logger.info(f"  Metrics: http://{settings.api.host}:{settings.api.port}/metrics")
@@ -224,9 +282,9 @@ async def lifespan(app: FastAPI):
 # ─── FastAPI 应用 ──────────────────────────────────────
 
 app = FastAPI(
-    title="EchoServe V0.2.0",
+    title="EchoServe V0.3.0",
     description="企业级本地知识库问答系统 — P2 完整版（含 WhatsApp + LDAP/OAuth + DPO + 等保合规）",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -282,6 +340,14 @@ app.include_router(metrics_router.router,      prefix="",      tags=["监控"])
 # P2 路由（新增）
 # 企业认证路由（OAuth2 回调、LDAP 同步）由 EnterpriseAuthPlugin 内部注册
 # WhatsApp 路由由 WhatsAppChannelPlugin 内部注册
+
+# V0.3.0 业务路由
+app.include_router(ticket_router.router,       prefix="/api", tags=["工单系统"])
+app.include_router(agent_router.router,         prefix="/api", tags=["坐席管理"])
+app.include_router(quick_reply_router.router,   prefix="/api", tags=["快捷回复"])
+app.include_router(workflow_router.router,      prefix="/api", tags=["工作流引擎"])
+app.include_router(model_provider_router.router, prefix="/api", tags=["多模型Provider"])
+app.include_router(ticket_ai_router.router,      prefix="/api", tags=["AI工单调查+工具调用"])  # Phase 2.5/2.6
 
 # ─── 健康检查 ──────────────────────────────────────
 

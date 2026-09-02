@@ -125,7 +125,7 @@ class LoRATrainer:
 
         # 2. 加载和分割数据
         train_data, val_data = self._prepare_data()
-        if len(train_data) == 0:
+        if not train_data:
             logger.error(f"  训练数据为空")
             return self._result("failed", "empty_train_data", start_time)
 

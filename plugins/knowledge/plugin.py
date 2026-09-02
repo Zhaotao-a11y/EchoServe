@@ -15,6 +15,7 @@ import json
 import uuid
 import asyncio
 import logging
+import hashlib
 from pathlib import Path
 from typing import Any
 from datetime import datetime, timezone
@@ -209,6 +210,108 @@ class KnowledgePlugin(BaizePlugin):
 
     # ─── 文档管理 API ────────────────────────────────────
 
+    async def update_file(
+        self,
+        file_content: bytes,
+        filename: str,
+        metadata: (dict[str, Any] | None) = None,
+        allowed_roles: (list[str] | None) = None,
+    ) -> dict[str, Any]:
+        """
+        增量更新文件：基于 content_hash 检测变更，仅变更时重建索引。
+
+        流程：
+        1. 计算新文件 content_hash
+        2. 查找同名旧文件 → 比对 hash
+        3. hash 相同 → 跳过（无变更）
+        4. hash 不同 → 删除旧 chunks → 重新解析+切片+索引（增量，非全量重建）
+
+        Args:
+            file_content: 文件二进制内容
+            filename: 文件名
+            metadata: 额外元数据
+            allowed_roles: 权限列表
+
+        Returns:
+            更新结果信息
+        """
+        # 计算新文件 hash
+        new_hash = hashlib.sha256(file_content).hexdigest()
+
+        # 查找同名旧文档
+        old_doc_ids = self._find_doc_ids_by_filename(filename)
+
+        if old_doc_ids:
+            # 检查旧文件的 hash
+            old_doc = self.documents[old_doc_ids[0]]
+            old_hash = old_doc.get("metadata", {}).get("file_hash", "")
+
+            if old_hash == new_hash:
+                logger.info(
+                    f"[{self.plugin_id}] File unchanged (hash match), skip update: {filename}"
+                )
+                return {
+                    "updated": False,
+                    "reason": "content_unchanged",
+                    "filename": filename,
+                    "doc_count": len(old_doc_ids),
+                }
+
+            # 内容变更 → 删除旧文档（增量删除，非全量重建）
+            await self._remove_docs_incremental(old_doc_ids)
+            logger.info(
+                f"[{self.plugin_id}] File changed, removed {len(old_doc_ids)} old chunks: {filename}"
+            )
+
+        # 重新上传（解析+切片+索引）
+        # upload_file 会保存新文件并创建新文档
+        result = await self.upload_file(
+            file_content=file_content,
+            filename=filename,
+            metadata=metadata,
+            allowed_roles=allowed_roles,
+        )
+
+        result["updated"] = True
+        result["previous_doc_count"] = len(old_doc_ids)
+        return result
+
+    def _find_doc_ids_by_filename(self, filename: str) -> list[str]:
+        """按文件名查找所有关联的文档 ID"""
+        return [
+            doc_id
+            for doc_id, doc in self.documents.items()
+            if doc.get("metadata", {}).get("filename") == filename
+        ]
+
+    async def _remove_docs_incremental(self, doc_ids: list[str]):
+        """
+        增量删除文档：从内存、磁盘和检索索引中删除指定文档。
+
+        与 remove_document 不同，不会触发全量重建索引，
+        而是调用 retriever.remove_documents() 精准删除。
+
+        Args:
+            doc_ids: 要删除的文档 ID 列表
+        """
+        if not doc_ids:
+            return
+
+        async with self._lock:
+            for doc_id in doc_ids:
+                self.documents.pop(doc_id, None)
+
+            # 增量删除检索索引
+            try:
+                retriever = self.inject("retriever", None)
+                if retriever and hasattr(retriever, "remove_documents"):
+                    retriever.remove_documents(doc_ids)
+            except KeyError:
+                pass
+
+            # 持久化
+            await self._save_to_disk()
+
     async def add_document(
         self,
         content: str,
@@ -251,15 +354,25 @@ class KnowledgePlugin(BaizePlugin):
             await self.add_document(content=content, doc_id=doc_id, metadata=metadata)
 
     async def remove_document(self, doc_id: str) -> bool:
-        """删除文档"""
+        """删除文档（增量删除，非全量重建索引）"""
         async with self._lock:
             if doc_id not in self.documents:
                 return False
 
             del self.documents[doc_id]
 
-            # 触发索引重建
-            await self._rebuild_index()
+            # 增量删除检索索引
+            try:
+                retriever = self.inject("retriever", None)
+                if retriever:
+                    if hasattr(retriever, "remove_documents"):
+                        retriever.remove_documents([doc_id])
+                    else:
+                        await self._rebuild_index()
+            except KeyError:
+                pass
+
+            await self._save_to_disk()
 
         logger.info(f"[{self.plugin_id}] Removed doc: {doc_id}")
         return True
@@ -270,19 +383,49 @@ class KnowledgePlugin(BaizePlugin):
         content: (str | None) = None,
         metadata: (dict[str, Any] | None) = None,
     ) -> bool:
-        """更新文档"""
+        """
+        更新文档（增量索引更新，非全量重建）。
+
+        当 content 变更时，先从检索索引删除旧文档，再添加新文档。
+        仅 metadata 变更时，更新元数据但不触发索引重建（metadata 随文档走）。
+
+        Args:
+            doc_id: 文档 ID
+            content: 新内容（None 表示不更新内容）
+            metadata: 新元数据（None 表示不更新元数据）
+
+        Returns:
+            更新是否成功
+        """
         async with self._lock:
             if doc_id not in self.documents:
                 return False
 
             doc = self.documents[doc_id]
-            if content is not None:
+            content_changed = False
+
+            if content is not None and content != doc["content"]:
                 doc["content"] = content
+                content_changed = True
+
             if metadata is not None:
                 doc["metadata"].update(metadata)
             doc["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-            await self._rebuild_index()
+            # 增量索引更新：仅当内容变更时，先删后增
+            if content_changed:
+                try:
+                    retriever = self.inject("retriever", None)
+                    if retriever:
+                        # 先删除旧文档
+                        if hasattr(retriever, "remove_documents"):
+                            retriever.remove_documents([doc_id])
+                        # 再添加更新后的文档
+                        retriever.add_documents([doc])
+                except KeyError:
+                    pass
+
+            await self._save_to_disk()
 
         logger.info(f"[{self.plugin_id}] Updated doc: {doc_id}")
         return True

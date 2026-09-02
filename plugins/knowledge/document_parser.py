@@ -336,16 +336,23 @@ def parse_docx(file_path: str) -> str:
         raise
 
 
-def parse_file(file_path: str) -> dict[str, Any]:
+def parse_file(file_path: str, semantic: bool = False) -> dict[str, Any]:
     """
     通用文档解析入口。
     
+    Args:
+        file_path: 文件路径
+        semantic: 是否启用语义分块（Phase 2.4 增强）。
+                  True 时使用 SemanticChunker，生成带段落范围、
+                  边界分数等元数据的语义化分块。
+    
     返回：{
-        "chunks": list[str],       # 切片列表
-        "metadata": {              # 文件元数据
+        "chunks": list[str] | list[dict],  # 切片列表
+        "metadata": {                       # 文件元数据
             "filetype": str,
             "size": int,
             "file_hash": str,
+            "chunking_strategy": str,       # 分块策略标识
         }
     }
     """
@@ -377,7 +384,12 @@ def parse_file(file_path: str) -> dict[str, Any]:
         raise ValueError(f"Unsupported file type: {suffix}")
     
     # 切片
-    chunks = chunk_text(text)
+    if semantic:
+        chunks = _semantic_chunk(text, path.name)
+        chunking_strategy = "semantic"
+    else:
+        chunks = chunk_text(text)
+        chunking_strategy = "token_aware"
     
     return {
         "chunks": chunks,
@@ -385,5 +397,21 @@ def parse_file(file_path: str) -> dict[str, Any]:
             "filetype": filetype,
             "size": file_size,
             "file_hash": file_hash,
+            "chunking_strategy": chunking_strategy,
         },
     }
+
+
+def _semantic_chunk(text: str, source_name: str) -> list[dict[str, Any]]:
+    """
+    使用语义分块器切分文本（Phase 2.4 增强）。
+    
+    返回带丰富元数据的分块列表。
+    """
+    try:
+        from plugins.knowledge.semantic_chunker import SemanticChunker
+        chunker = SemanticChunker()
+        return chunker.chunk(text, source=source_name)
+    except Exception as e:
+        logger.warning(f"[document_parser] Semantic chunking failed, fallback to token-aware: {e}")
+        return chunk_text(text)

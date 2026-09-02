@@ -237,6 +237,24 @@ class VectorRetriever:
 
         return formatted
 
+    async def remove_documents(self, doc_ids: list[str]):
+        """
+        按 ID 从向量库删除文档（增量更新用）。
+
+        Args:
+            doc_ids: 要删除的文档 ID 列表
+        """
+        if not HAS_CHROMA or not self._collection:
+            return
+        if not doc_ids:
+            return
+
+        try:
+            self._collection.delete(ids=doc_ids)
+            logger.info(f"[Vector] Removed {len(doc_ids)} documents from collection")
+        except Exception as e:
+            logger.error(f"[Vector] Remove failed: {e}")
+
     async def clear(self):
         """清空 collection"""
         if not HAS_CHROMA or not self._collection:

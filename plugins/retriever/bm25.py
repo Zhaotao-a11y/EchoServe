@@ -144,6 +144,37 @@ class BM25Retriever:
 
         return results
 
+    def remove_documents(self, doc_ids: list[str]):
+        """
+        按 ID 删除指定文档（增量更新用）。
+
+        删除后自动重建 BM25 索引并持久化。
+
+        Args:
+            doc_ids: 要删除的文档 ID 列表
+        """
+        if not doc_ids:
+            return
+
+        removed = 0
+        id_set = set(doc_ids)
+        # 重建列表，跳过要删除的
+        new_docs = []
+        new_corpus = []
+        for doc, tokens in zip(self._docs, self._corpus_tokens):
+            if doc.id in id_set:
+                removed += 1
+                continue
+            new_docs.append(doc)
+            new_corpus.append(tokens)
+
+        self._docs = new_docs
+        self._corpus_tokens = new_corpus
+        self._doc_map = {doc.id: idx for idx, doc in enumerate(self._docs)}
+        self._rebuild_index()
+        self._auto_save()
+        logger.info(f"[BM25] Removed {removed} docs, remaining={len(self._docs)}")
+
     def clear(self):
         """清空索引"""
         self._docs.clear()

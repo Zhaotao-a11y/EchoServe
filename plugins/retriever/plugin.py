@@ -178,6 +178,25 @@ class RetrieverPlugin(BaizePlugin):
             asyncio.create_task(self.vector.clear())
         logger.info(f"[{self.plugin_id}] All indexes cleared")
 
+    def remove_documents(self, doc_ids: list[str]):
+        """
+        按 ID 删除指定文档（增量更新用）。
+
+        同时从 BM25 和 Vector 索引中移除，不需要全量重建。
+
+        Args:
+            doc_ids: 要删除的文档 ID 列表
+        """
+        if not doc_ids:
+            return
+
+        self.bm25.remove_documents(doc_ids)
+
+        if self.vector:
+            asyncio.create_task(self.vector.remove_documents(doc_ids))
+
+        logger.info(f"[{self.plugin_id}] Removed {len(doc_ids)} documents from index")
+
     # ─── 重排序控制 ────────────────────────────────
 
     def enable_rerank(self):

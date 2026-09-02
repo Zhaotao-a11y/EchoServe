@@ -5,6 +5,154 @@
 
 ---
 
+## [V0.3.0] - 2026-08-28 — B 端客服业务体系升级（Release）
+
+### 概述
+
+本次 Release 基于行业调研（网易七鱼、智齿科技、Zendesk、Intercom 等），补齐 EchoServe 在 B 端客服业务链路上的 6 项核心缺失功能：工单系统、坐席管理、人机转接、排队管理、满意度评价、快捷回复。系统版本号统一升级至 V0.3.0，插件数 14 → 17，新增 API 端点 35 个。全部通过 26 项 API 全链路测试。
+
+---
+
+### 一、新增插件（3 个）
+
+#### NEW-1 — 工单系统插件（`plugins/ticket/`）
+
+**功能**：工单全生命周期管理。
+
+- 工单 CRUD：创建/查询/更新/删除
+- 状态流转：open → in_progress → waiting → resolved → closed
+- 优先级分级：low / medium / high / urgent
+- SLA 超时预警：按优先级设定阈值（urgent 2h / high 4h / medium 24h / low 48h）
+- 工单评论：支持内部备注
+- 关联会话 ID：支持追溯来源
+- 分类标签管理
+- 工单统计看板
+
+**数据存储**：SQLite（`data/ticket.db`），含 tickets + ticket_comments 两表
+
+**API 端点**（8 个）：
+- `POST /api/tickets` — 创建工单
+- `GET /api/tickets` — 查询列表（筛选/分页）
+- `GET /api/tickets/{id}` — 工单详情
+- `PUT /api/tickets/{id}` — 更新工单
+- `DELETE /api/tickets/{id}` — 删除工单
+- `POST /api/tickets/{id}/comments` — 添加评论
+- `GET /api/tickets/{id}/comments` — 获取评论
+- `GET /api/tickets/stats` — 统计看板
+- `GET /api/tickets/sla` — SLA 超时工单
+
+---
+
+#### NEW-2 — 坐席管理 + 人机转接插件（`plugins/agent/`）
+
+**功能**：人机协同全链路。
+
+- 坐席注册与状态管理：online / busy / break / offline
+- 坐席并发上限控制（max_concurrent）
+- 人机转接：AI → 人工无缝衔接
+- 排队管理：坐席全忙时客户排队等待
+- 自动分配：按负载最低策略选择空闲坐席
+- 坐席会话管理：start/end/increment_message_count
+- 满意度评价：1-5 星 + 标签 + 文字反馈
+- 评价统计：按坐席/时间段聚合
+- 坐席看板：实时状态、活跃会话、排队、满意度
+
+**数据存储**：SQLite（`data/agent.db`），含 agents + handoffs + agent_sessions + satisfaction_ratings 四表
+
+**API 端点**（16 个）：
+- 坐席管理：`POST /api/agents/register`、`GET /api/agents`、`GET /api/agents/{id}`、`PUT /api/agents/{id}/status`、`GET /api/agents/{id}/workload`、`GET /api/agents/dashboard`
+- 人机转接：`POST /api/handoffs`、`GET /api/handoffs`、`GET /api/handoffs/{id}`、`POST /api/handoffs/{id}/assign`、`POST /api/handoffs/{id}/complete`、`POST /api/handoffs/{id}/cancel`
+- 排队管理：`GET /api/handoffs/queue/status`、`POST /api/handoffs/queue/process`
+- 满意度：`POST /api/satisfaction`、`GET /api/satisfaction/{session_id}`、`GET /api/satisfaction/stats`
+
+---
+
+#### NEW-3 — 快捷回复插件（`plugins/quick_reply/`）
+
+**功能**：话术模板管理与渲染。
+
+- 模板 CRUD：创建/查询/更新/删除
+- 分类管理：预置 6 个分类（通用/问候/订单/退款/技术/结束语）
+- 模糊搜索：按标题/内容/快捷键搜索
+- 变量占位符：支持 `{customer_name}`、`{order_id}` 等动态替换
+- 使用次数统计
+- 预置 6 个常用模板（欢迎语、排队提示、订单查询、退款说明、技术排查、结束语）
+
+**数据存储**：SQLite（`data/quick_reply.db`），含 quick_replies + reply_categories 两表
+
+**API 端点**（9 个）：
+- `POST /api/quick-replies` — 创建模板
+- `GET /api/quick-replies` — 查询列表
+- `GET /api/quick-replies/search` — 搜索模板
+- `GET /api/quick-replies/{id}` — 模板详情
+- `PUT /api/quick-replies/{id}` — 更新模板
+- `DELETE /api/quick-replies/{id}` — 删除模板
+- `POST /api/quick-replies/{id}/render` — 渲染模板（变量替换）
+- `GET /api/quick-replies/categories` — 分类列表
+- `GET /api/quick-replies/stats` — 分类统计
+
+---
+
+### 二、权限体系扩展
+
+**变更**：`plugins/auth/plugin.py` 中 `ROLE_PERMISSIONS["admin"]` 新增 4 项权限：
+- `ticket.read`、`ticket.write` — 工单读写
+- `agent.read`、`agent.write` — 坐席读写
+
+快捷回复路由复用现有 `kb.read`/`kb.write` 权限。
+
+---
+
+### 三、版本号统一升级（V0.2.0 → V0.3.0）
+
+| 文件 | 变更内容 |
+|------|---------|
+| `api/main.py` | 启动横幅 + title + version + Features 行 |
+| `core/plugin.py` | 基类默认 plugin_version |
+| `cpu_llm_server.py` | FastAPI version |
+| `api/routers/settings.py` | 版本号响应 |
+
+---
+
+### 四、新增文件清单
+
+| 文件路径 | 说明 |
+|---------|------|
+| `plugins/ticket/__init__.py` | 工单插件包 |
+| `plugins/ticket/plugin.py` | 工单系统核心逻辑 |
+| `plugins/agent/__init__.py` | 坐席插件包 |
+| `plugins/agent/plugin.py` | 坐席管理 + 人机转接 + 满意度评价 |
+| `plugins/quick_reply/__init__.py` | 快捷回复插件包 |
+| `plugins/quick_reply/plugin.py` | 快捷回复模板管理 |
+| `api/routers/ticket.py` | 工单 API 路由 |
+| `api/routers/agent.py` | 坐席 + 转接 + 满意度 API 路由 |
+| `api/routers/quick_reply.py` | 快捷回复 API 路由 |
+
+### 五、修改文件清单
+
+| 文件路径 | 变更内容 |
+|---------|------|
+| `api/main.py` | 导入新插件 + 注册路由 + 启动横幅 + 版本号 |
+| `core/plugin.py` | 默认 plugin_version 0.2.0 → 0.3.0 |
+| `cpu_llm_server.py` | version 0.2.0 → 0.3.0 |
+| `api/routers/settings.py` | version 0.2.0 → 0.3.0 |
+| `plugins/auth/plugin.py` | admin 角色新增 ticket/agent 权限 |
+
+---
+
+### 六、测试验证
+
+- py_compile 7 文件全部通过
+- 后端启动验证：17 个插件全部加载成功，`EchoServe V0.3.0 — Ready!`
+- 26 项 API 全链路测试通过：
+  - 工单系统：创建/列表/详情/更新/统计/评论/SLA — 8 项全通过
+  - 坐席管理：注册/状态/列表/看板/工作负载 — 5 项全通过
+  - 人机转接：请求/列表/排队/完成 — 4 项全通过
+  - 满意度：提交/统计/查询 — 3 项全通过
+  - 快捷回复：列表/搜索/创建/渲染/分类/统计 — 6 项全通过
+
+---
+
 ## [V0.2.0] - 2026-08-28 — 进化系统优化 + 性能修复 + 数据清洗（Release）
 
 ### 概述

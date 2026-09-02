@@ -35,7 +35,7 @@ class BaizePlugin:
 
     plugin_id: str = ""
     plugin_name: str = ""
-    plugin_version: str = "0.2.0"
+    plugin_version: str = "0.3.0"
     dependencies: list[str] = []
 
     # ─── 生命周期（由 Fiber 调用）──────────────────
